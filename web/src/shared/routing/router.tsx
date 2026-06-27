@@ -1,5 +1,7 @@
-import { createRouter, createRoute, createRootRoute } from '@tanstack/react-router'
+import { createRouter, createRoute, createRootRoute, redirect } from '@tanstack/react-router'
 import { CreateEventPage } from '@/features/event-config/CreateEventPage'
+import { EventView } from '@/features/join/EventView'
+import { setToken } from '@/shared/api/token'
 
 const rootRoute = createRootRoute()
 
@@ -12,13 +14,19 @@ const indexRoute = createRoute({
 const eventRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/events/$eventId',
-  component: () => <div>Event view</div>,
+  component: () => {
+    const { eventId } = eventRoute.useParams()
+    return <EventView eventId={eventId} />
+  },
 })
 
 const eventWithTokenRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/events/$eventId/$token',
-  component: () => <div>Token extraction</div>,
+  beforeLoad: ({ params }) => {
+    setToken(params.eventId, params.token)
+    throw redirect({ to: '/events/$eventId', params: { eventId: params.eventId } })
+  },
 })
 
 const routeTree = rootRoute.addChildren([indexRoute, eventRoute, eventWithTokenRoute])
