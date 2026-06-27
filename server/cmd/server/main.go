@@ -70,6 +70,9 @@ func main() {
 	r.Post("/events/{eventId}/dates", func(w http.ResponseWriter, r *http.Request) {
 		h.SuggestDate(w, r, chi.URLParam(r, "eventId"))
 	})
+	r.Get("/events/{eventId}/live", func(w http.ResponseWriter, r *http.Request) {
+		h.HandleWebSocket(w, r, chi.URLParam(r, "eventId"))
+	})
 
 	log.Printf("listening on :%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, r))
