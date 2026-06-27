@@ -83,7 +83,11 @@ func (r *SQLiteEventRepo) getEvent(query string, arg string) (*domain.Event, err
 		return nil, err
 	}
 
-	e.CreatedAt, _ = parseUTC(createdAt)
+	var err2 error
+	e.CreatedAt, err2 = parseUTC(createdAt)
+	if err2 != nil {
+		return nil, err2
+	}
 
 	visibility, err := r.getVisibility(e.ID)
 	if err != nil {
@@ -118,15 +122,23 @@ func (r *SQLiteEventRepo) UpdateMutable(id string, title *string, description *s
 		}
 	}
 	if visibility != nil {
-		tx.Exec("DELETE FROM names_visible_visibility WHERE event_id = ?", id)
-		tx.Exec("DELETE FROM anonymous_visibility WHERE event_id = ?", id)
+		if _, err := tx.Exec("DELETE FROM names_visible_visibility WHERE event_id = ?", id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("DELETE FROM anonymous_visibility WHERE event_id = ?", id); err != nil {
+			return err
+		}
 		if err := insertVisibility(tx, id, visibility); err != nil {
 			return err
 		}
 	}
 	if suggestions != nil {
-		tx.Exec("DELETE FROM open_suggestion_policy WHERE event_id = ?", id)
-		tx.Exec("DELETE FROM closed_suggestion_policy WHERE event_id = ?", id)
+		if _, err := tx.Exec("DELETE FROM open_suggestion_policy WHERE event_id = ?", id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("DELETE FROM closed_suggestion_policy WHERE event_id = ?", id); err != nil {
+			return err
+		}
 		if err := insertSuggestionPolicy(tx, id, suggestions); err != nil {
 			return err
 		}
