@@ -12,6 +12,11 @@ func New(path string) (*sql.DB, error) {
 		return nil, err
 	}
 
+	// SQLite supports only one writer at a time. Limiting the pool to a single
+	// connection avoids "database is locked" errors and, for :memory: databases,
+	// ensures all queries share the same in-memory instance.
+	db.SetMaxOpenConns(1)
+
 	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		db.Close()
 		return nil, err
