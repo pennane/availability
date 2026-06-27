@@ -88,7 +88,7 @@ export function CreateEventPage() {
 
       <TextField className="mb-4" value={description} onChange={setDescription}>
         <Label className="block text-sm font-medium mb-1"><FormattedMessage id="create.fieldDescription" defaultMessage="Description (optional)" /></Label>
-        <Input className="w-full border rounded px-3 py-2" />
+        <textarea className="w-full border rounded px-3 py-2 resize-none" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
       </TextField>
 
       <div className="mb-4">

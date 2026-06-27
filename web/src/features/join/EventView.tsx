@@ -724,7 +724,7 @@ function SpectatorView({
       <div className="mb-4">
         <h1 className="text-xl font-bold">{data.title}</h1>
         {data.description && (
-          <p className="text-gray-600 text-sm mt-0.5">{data.description}</p>
+          <p className="text-gray-600 text-sm mt-0.5 whitespace-pre-line">{data.description}</p>
         )}
         <p className="text-xs text-gray-400 mt-1">
           {columns.length > 0 && (
@@ -916,7 +916,7 @@ export function EventView({ eventId }: { eventId: string }) {
           <div>
             <h1 className="text-xl font-bold">{authedData.title}</h1>
             {authedData.description && (
-              <p className="text-gray-600 text-sm mt-0.5">
+              <p className="text-gray-600 text-sm mt-0.5 whitespace-pre-line">
                 {authedData.description}
               </p>
             )}
