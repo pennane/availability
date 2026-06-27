@@ -56,7 +56,7 @@ export function DatePicker({ selected, onChange }: Props) {
         </Button>
       </div>
 
-      <CalendarGrid weekdayStyle="short">
+      <CalendarGrid weekdayStyle="short" className="w-full">
         <CalendarGridHeader>
           {(day) => (
             <CalendarHeaderCell className="text-center text-[10px] text-gray-400 font-medium pb-1">
