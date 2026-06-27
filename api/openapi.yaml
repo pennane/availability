@@ -157,6 +157,31 @@ paths:
               schema:
                 $ref: '#/components/schemas/MyParticipation'
 
+  /events/{eventId}/participants/{participantId}:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: participantId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: removeParticipant
+      summary: Remove a participant (host only)
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Participant removed
+        '403':
+          description: Not the host
+
   /events/{eventId}/share-links:
     parameters:
       - name: eventId

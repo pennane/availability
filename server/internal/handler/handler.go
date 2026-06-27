@@ -545,6 +545,26 @@ func (h *Handler) SuggestDate(w http.ResponseWriter, r *http.Request, eventID st
 	json.NewEncoder(w).Encode(dateMap)
 }
 
+func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request, eventID string, participantID string) {
+	role, _ := h.auth.Resolve(r, eventID)
+	if role != RoleHost {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := h.participants.Delete(participantID, eventID); err != nil {
+		http.Error(w, "failed to remove participant", http.StatusInternalServerError)
+		return
+	}
+
+	h.broadcast.Send(eventID, ws.EventMessage{
+		Kind:          "participant-removed",
+		ParticipantID: participantID,
+	}, nil)
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handler) CreateShareLink(w http.ResponseWriter, r *http.Request, eventID string) {
 	role, _ := h.auth.Resolve(r, eventID)
 	if role != RoleHost {

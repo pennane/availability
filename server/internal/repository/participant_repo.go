@@ -11,6 +11,7 @@ type ParticipantRepository interface {
 	GetByToken(token string) (*domain.Participant, error)
 	GetByEventID(eventID string) ([]domain.Participant, error)
 	Update(id string, name *string, note *string) error
+	Delete(id string, eventID string) error
 }
 
 type SQLiteParticipantRepo struct {
@@ -75,4 +76,9 @@ func (r *SQLiteParticipantRepo) Update(id string, name *string, note *string) er
 		}
 	}
 	return nil
+}
+
+func (r *SQLiteParticipantRepo) Delete(id string, eventID string) error {
+	_, err := r.db.Exec("DELETE FROM participants WHERE id = ? AND event_id = ?", id, eventID)
+	return err
 }

@@ -71,6 +71,9 @@ func main() {
 	r.Post("/events/{eventId}/dates", func(w http.ResponseWriter, r *http.Request) {
 		h.SuggestDate(w, r, chi.URLParam(r, "eventId"))
 	})
+	r.Delete("/events/{eventId}/participants/{participantId}", func(w http.ResponseWriter, r *http.Request) {
+		h.RemoveParticipant(w, r, chi.URLParam(r, "eventId"), chi.URLParam(r, "participantId"))
+	})
 	r.Post("/events/{eventId}/share-links", func(w http.ResponseWriter, r *http.Request) {
 		h.CreateShareLink(w, r, chi.URLParam(r, "eventId"))
 	})
