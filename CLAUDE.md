@@ -18,7 +18,7 @@ Monorepo with three top-level directories:
 
 ## Data Model
 
-Class table inheritance in SQLite — each discriminated union variant is its own table. Row existence is the discriminant. No booleans, no JSON columns, no `kind` text columns. Variant exclusivity enforced by `BEFORE INSERT` triggers + SQL transactions. `PRAGMA foreign_keys = ON` required at every connection. All variant FKs use `ON DELETE CASCADE`.
+Class table inheritance in SQLite — each discriminated union variant is its own table. Row existence is the discriminant. No booleans, no JSON columns, no `kind` text columns. Variant exclusivity enforced by `BEFORE INSERT` triggers + SQL transactions. `PRAGMA foreign_keys = ON` and `PRAGMA journal_mode = WAL` required at every connection. All variant FKs use `ON DELETE CASCADE`. Entity IDs are UUIDv7. Go domain types use sealed interfaces (unexported method pattern) for discriminated unions.
 
 ## Key Patterns
 
@@ -26,7 +26,8 @@ Class table inheritance in SQLite — each discriminated union variant is its ow
 - **Feature-sliced frontend**: features never import from other features. Shared concerns in `shared/`.
 - **WebSocket as notification bus**: broadcasts typed `kind`-discriminated messages, client invalidates TanStack Query cache and refetches. Not a data transport.
 - **Token auth**: 128-bit base64url tokens. Delivered via URL path segment on first visit, stored in `localStorage`, sent as `Authorization: Bearer` header on API calls.
-- **Timezone**: host's IANA timezone stored on the event. All times in host timezone. Optional client-side conversion via `Intl.DateTimeFormat`.
+- **Timezone**: host's IANA timezone stored on the event. Slots stored as full ISO datetimes in host timezone (supports midnight-crossing ranges). Optional client-side conversion via `Intl.DateTimeFormat`.
+- **Immutable grid fields**: `timezone`, `slot_duration_minutes`, `time_range_start`, `time_range_end` are immutable after event creation — changing them would corrupt existing availability.
 - **CORS**: server allows requests from configured frontend origin only (env var). Not wildcard.
 
 ## Deployment
