@@ -3,6 +3,7 @@ module github.com/pennane/availability/server
 go 1.25.0
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/getkin/kin-openapi v0.140.0
 	github.com/go-chi/chi/v5 v5.3.0
 	github.com/go-chi/cors v1.2.2
@@ -28,5 +29,4 @@ require (
 	modernc.org/libc v1.73.4 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	nhooyr.io/websocket v1.8.17 // indirect
 )

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"nhooyr.io/websocket"
+	"github.com/coder/websocket"
 
 	"github.com/pennane/availability/server/internal/ws"
 )
