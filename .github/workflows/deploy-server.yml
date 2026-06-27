@@ -21,10 +21,12 @@ jobs:
       - name: Deploy
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_HOST_KEY: ${{ vars.VPS_HOST_KEY }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H REDACTED_VPS_IP >> ~/.ssh/known_hosts
-          scp server/availability-server root@REDACTED_VPS_IP:/opt/availability/availability-server
-          ssh root@REDACTED_VPS_IP 'systemctl restart availability'
+          echo "$VPS_HOST_KEY" >> ~/.ssh/known_hosts
+          scp server/availability-server root@"$VPS_HOST":/opt/availability/availability-server
+          ssh root@"$VPS_HOST" 'systemctl restart availability'
