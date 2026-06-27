@@ -1,0 +1,574 @@
+openapi: '3.1.0'
+info:
+  title: Availability API
+  version: 0.1.0
+  description: When2meet-style availability polling
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+paths:
+  /events:
+    post:
+      operationId: createEvent
+      summary: Create a new event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventRequest'
+      responses:
+        '201':
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateEventResponse'
+
+  /events/{eventId}:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getEvent
+      summary: Get event (polymorphic on auth role)
+      security:
+        - bearerAuth: []
+        - {}
+      responses:
+        '200':
+          description: Event data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventView'
+        '404':
+          description: Event not found
+    patch:
+      operationId: updateEvent
+      summary: Update mutable event settings (host only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEventRequest'
+      responses:
+        '200':
+          description: Event updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventView'
+        '403':
+          description: Not the host
+        '422':
+          description: Attempted to modify immutable field
+
+  /events/{eventId}/me:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: joinEvent
+      summary: Join an event as a participant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinEventRequest'
+      responses:
+        '201':
+          description: Joined
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinEventResponse'
+    get:
+      operationId: getMyParticipation
+      summary: Get own participation state
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Participation data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyParticipation'
+        '401':
+          description: No valid participant token
+    patch:
+      operationId: updateMyParticipation
+      summary: Update own name/note
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateParticipationRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyParticipation'
+
+  /events/{eventId}/me/availability:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: replaceAvailability
+      summary: Replace full availability set
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceAvailabilityRequest'
+      responses:
+        '200':
+          description: Availability replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyParticipation'
+
+  /events/{eventId}/dates:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: suggestDate
+      summary: Suggest a date (if suggestion policy is open)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuggestDateRequest'
+      responses:
+        '201':
+          description: Date suggested
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventDate'
+        '409':
+          description: Date already exists (returns existing)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventDate'
+        '403':
+          description: Suggestion policy is closed
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    VisibilityPolicy:
+      oneOf:
+        - $ref: '#/components/schemas/NamesVisibleVisibility'
+        - $ref: '#/components/schemas/AnonymousVisibility'
+      discriminator:
+        propertyName: kind
+        mapping:
+          names-visible: '#/components/schemas/NamesVisibleVisibility'
+          anonymous: '#/components/schemas/AnonymousVisibility'
+
+    NamesVisibleVisibility:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          const: names-visible
+
+    AnonymousVisibility:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          const: anonymous
+
+    SuggestionPolicy:
+      oneOf:
+        - $ref: '#/components/schemas/OpenSuggestionPolicy'
+        - $ref: '#/components/schemas/ClosedSuggestionPolicy'
+      discriminator:
+        propertyName: kind
+        mapping:
+          open: '#/components/schemas/OpenSuggestionPolicy'
+          closed: '#/components/schemas/ClosedSuggestionPolicy'
+
+    OpenSuggestionPolicy:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          const: open
+
+    ClosedSuggestionPolicy:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          const: closed
+
+    SlotDuration:
+      type: integer
+      enum: [15, 30, 60]
+
+    TimeSlotConfig:
+      type: object
+      required: [durationMinutes, rangeStart, rangeEnd]
+      properties:
+        durationMinutes:
+          $ref: '#/components/schemas/SlotDuration'
+        rangeStart:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          description: 'HH:mm in host timezone'
+        rangeEnd:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          description: 'HH:mm in host timezone'
+
+    EventDate:
+      oneOf:
+        - $ref: '#/components/schemas/HostSuggestedDate'
+        - $ref: '#/components/schemas/ParticipantSuggestedDate'
+      discriminator:
+        propertyName: origin
+        mapping:
+          host: '#/components/schemas/HostSuggestedDate'
+          participant: '#/components/schemas/ParticipantSuggestedDate'
+
+    HostSuggestedDate:
+      type: object
+      required: [id, date, origin]
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        origin:
+          type: string
+          const: host
+
+    ParticipantSuggestedDate:
+      type: object
+      required: [id, date, origin, participantId]
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        origin:
+          type: string
+          const: participant
+        participantId:
+          type: string
+          format: uuid
+
+    AvailabilityEntry:
+      oneOf:
+        - $ref: '#/components/schemas/AvailableEntry'
+        - $ref: '#/components/schemas/IfNeededEntry'
+      discriminator:
+        propertyName: kind
+        mapping:
+          available: '#/components/schemas/AvailableEntry'
+          if-needed: '#/components/schemas/IfNeededEntry'
+
+    AvailableEntry:
+      type: object
+      required: [kind, eventDateId, slot]
+      properties:
+        kind:
+          type: string
+          const: available
+        eventDateId:
+          type: string
+          format: uuid
+        slot:
+          type: string
+          description: 'Full ISO datetime in host timezone, e.g. 2026-07-15T22:00'
+
+    IfNeededEntry:
+      type: object
+      required: [kind, eventDateId, slot]
+      properties:
+        kind:
+          type: string
+          const: if-needed
+        eventDateId:
+          type: string
+          format: uuid
+        slot:
+          type: string
+          description: 'Full ISO datetime in host timezone'
+        reason:
+          type: string
+
+    Participant:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        note:
+          type: string
+
+    ParticipantWithAvailability:
+      type: object
+      required: [id, name, availability]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        note:
+          type: string
+        availability:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilityEntry'
+
+    EventBase:
+      type: object
+      required: [id, title, timezone, timeSlotConfig, dates]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        timezone:
+          type: string
+          description: IANA timezone
+        timeSlotConfig:
+          $ref: '#/components/schemas/TimeSlotConfig'
+        dates:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventDate'
+
+    PublicEventView:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [role]
+          properties:
+            role:
+              type: string
+              const: public
+
+    ParticipantEventView:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [role, visibility, suggestions, participants]
+          properties:
+            role:
+              type: string
+              const: participant
+            visibility:
+              $ref: '#/components/schemas/VisibilityPolicy'
+            suggestions:
+              $ref: '#/components/schemas/SuggestionPolicy'
+            participants:
+              type: array
+              items:
+                $ref: '#/components/schemas/ParticipantWithAvailability'
+
+    HostEventView:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          required: [role, visibility, suggestions, participants]
+          properties:
+            role:
+              type: string
+              const: host
+            visibility:
+              $ref: '#/components/schemas/VisibilityPolicy'
+            suggestions:
+              $ref: '#/components/schemas/SuggestionPolicy'
+            participants:
+              type: array
+              items:
+                $ref: '#/components/schemas/ParticipantWithAvailability'
+
+    EventView:
+      oneOf:
+        - $ref: '#/components/schemas/PublicEventView'
+        - $ref: '#/components/schemas/ParticipantEventView'
+        - $ref: '#/components/schemas/HostEventView'
+      discriminator:
+        propertyName: role
+        mapping:
+          public: '#/components/schemas/PublicEventView'
+          participant: '#/components/schemas/ParticipantEventView'
+          host: '#/components/schemas/HostEventView'
+
+    CreateEventRequest:
+      type: object
+      required: [title, timezone, timeSlotConfig, visibility, suggestions, dates]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        timezone:
+          type: string
+          description: IANA timezone
+        timeSlotConfig:
+          $ref: '#/components/schemas/TimeSlotConfig'
+        visibility:
+          $ref: '#/components/schemas/VisibilityPolicy'
+        suggestions:
+          $ref: '#/components/schemas/SuggestionPolicy'
+        dates:
+          type: array
+          items:
+            type: string
+            format: date
+          minItems: 1
+
+    CreateEventResponse:
+      type: object
+      required: [eventId, hostToken]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        hostToken:
+          type: string
+
+    UpdateEventRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        visibility:
+          $ref: '#/components/schemas/VisibilityPolicy'
+        suggestions:
+          $ref: '#/components/schemas/SuggestionPolicy'
+
+    JoinEventRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    JoinEventResponse:
+      type: object
+      required: [participantId, token]
+      properties:
+        participantId:
+          type: string
+          format: uuid
+        token:
+          type: string
+
+    UpdateParticipationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        note:
+          type: string
+          maxLength: 2000
+
+    MyParticipation:
+      type: object
+      required: [id, name, availability]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        note:
+          type: string
+        availability:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilityEntry'
+
+    ReplaceAvailabilityRequest:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilityEntry'
+
+    SuggestDateRequest:
+      type: object
+      required: [date]
+      properties:
+        date:
+          type: string
+          format: date

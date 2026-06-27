@@ -1,0 +1,24 @@
+# Go
+server/availability-server
+server/tmp/
+
+# Node
+node_modules/
+web/dist/
+
+# Generated (re-generate with `make generate`)
+server/internal/generated/
+web/src/shared/api/generated/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal

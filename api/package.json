@@ -1,0 +1,10 @@
+{
+  "name": "@availability/api",
+  "private": true,
+  "scripts": {
+    "generate": "openapi-typescript openapi.yaml -o ../web/src/shared/api/generated/schema.d.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.0.0"
+  }
+}
