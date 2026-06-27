@@ -43,23 +43,38 @@ export function JoinPage({ eventId, event, shareToken }: Props) {
   }
 
   return (
-    <div className="max-w-md mx-auto p-4 text-center">
+    <div className="max-w-md mx-auto p-4">
       <h1 className="text-2xl font-bold mb-2">{event.title}</h1>
-      {event.description && <p className="text-gray-600 mb-6">{event.description}</p>}
+      {event.description && (
+        <p className="text-gray-600 mb-6 whitespace-pre-line">
+          {event.description}
+        </p>
+      )}
 
       <TextField className="mb-4 text-left" value={name} onChange={setName}>
-        <Label className="block text-sm font-medium mb-1"><FormattedMessage id="join.yourName" defaultMessage="Your name" /></Label>
-        <Input className="w-full border rounded px-3 py-2" placeholder={intl.formatMessage({ id: 'join.namePlaceholder', defaultMessage: 'Enter your name' })} />
+        <Label className="block text-sm font-medium mb-1">
+          <FormattedMessage id="join.yourName" defaultMessage="Your name" />
+        </Label>
+        <Input
+          className="w-full border rounded px-3 py-2"
+          placeholder={intl.formatMessage({
+            id: 'join.namePlaceholder',
+            defaultMessage: 'Enter your name'
+          })}
+        />
       </TextField>
 
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
-      <Button
-        size="lg"
-        disabled={!name.trim() || submitting}
-        onClick={join}
-      >
-        {submitting ? <FormattedMessage id="join.submitting" defaultMessage="Joining..." /> : <FormattedMessage id="join.submit" defaultMessage="Join" />}
+      <Button size="lg" disabled={!name.trim() || submitting} onClick={join}>
+        {submitting ? (
+          <FormattedMessage id="join.submitting" defaultMessage="Entering..." />
+        ) : (
+          <FormattedMessage
+            id="join.submit"
+            defaultMessage="Enter your availability"
+          />
+        )}
       </Button>
     </div>
   )

@@ -337,7 +337,7 @@ function DateSuggestion({ eventId }: { eventId: string }) {
         <label className="text-xs text-gray-500">
           <FormattedMessage
             id="event.suggestDate"
-            defaultMessage="Suggest a date"
+            defaultMessage="Suggest alternative date"
           />
         </label>
         <input

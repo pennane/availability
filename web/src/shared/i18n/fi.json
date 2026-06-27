@@ -40,7 +40,7 @@
   "event.removeParticipant": "Poista {name}",
   "event.removeConfirm": "Poista",
   "event.bestDates": "Parhaat päivät",
-  "event.suggestDate": "Ehdota päivää",
+  "event.suggestDate": "Ehdota vaihtoehtoista aikaa",
   "event.suggestButton": "Ehdota",
   "event.noResponses": "Ei vastauksia vielä.",
 
@@ -92,7 +92,7 @@
 
   "join.yourName": "Nimesi",
   "join.namePlaceholder": "Syötä nimesi",
-  "join.submit": "Liity",
+  "join.submit": "Syötä saatavuutesi",
   "join.submitting": "Liitytään...",
   "join.error": "Liittyminen epäonnistui. Kutsulinkki on ehkä peruttu."
 }
