@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { GridCell } from './GridCell'
 import { useGridInteraction } from './useGridInteraction'
-import type { SlotEntry, GridColumn, GridRow } from './types'
+import type { SlotEntry, GridColumn } from './types'
+import { generateSlotRows } from '@/shared/grid/slots'
 
 type TimeSlotConfig = {
   durationMinutes: number
@@ -14,23 +15,6 @@ type Props = {
   timeSlotConfig: TimeSlotConfig
   entries: SlotEntry[]
   onChange: (entries: SlotEntry[]) => void
-}
-
-function generateSlotRows(config: TimeSlotConfig): GridRow[] {
-  const rows: GridRow[] = []
-  const [startH, startM] = config.rangeStart.split(':').map(Number)
-  const [endH, endM] = config.rangeEnd.split(':').map(Number)
-  const startMinutes = startH * 60 + startM
-  let endMinutes = endH * 60 + endM
-  if (endMinutes <= startMinutes) endMinutes += 24 * 60 // midnight wrap
-
-  for (let m = startMinutes; m < endMinutes; m += config.durationMinutes) {
-    const h = Math.floor((m % (24 * 60)) / 60)
-    const min = m % 60
-    const label = `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
-    rows.push({ slot: label, datetime: label })
-  }
-  return rows
 }
 
 function toFullDatetime(date: string, time: string): string {
