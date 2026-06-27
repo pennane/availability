@@ -1,11 +1,12 @@
 import { createRouter, createRoute, createRootRoute } from '@tanstack/react-router'
+import { CreateEventPage } from '@/features/event-config/CreateEventPage'
 
 const rootRoute = createRootRoute()
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: () => <div>Home — Create an event</div>,
+  component: CreateEventPage,
 })
 
 const eventRoute = createRoute({
