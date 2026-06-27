@@ -1,14 +1,19 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
+	"github.com/pennane/availability/server/internal/cleanup"
 	"github.com/pennane/availability/server/internal/db"
 	"github.com/pennane/availability/server/internal/handler"
 	"github.com/pennane/availability/server/internal/repository"
@@ -19,6 +24,9 @@ func main() {
 	port := envOr("PORT", "8080")
 	dbPath := envOr("DATABASE_PATH", "./availability.db")
 	allowedOrigin := envOr("ALLOWED_ORIGIN", "http://localhost:5173")
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	database, err := db.New(dbPath)
 	if err != nil {
@@ -90,8 +98,22 @@ func main() {
 		h.HandleWebSocket(w, r, chi.URLParam(r, "eventId"))
 	})
 
+	go cleanup.Run(ctx, database)
+
+	srv := &http.Server{Addr: ":" + port, Handler: r}
+
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		srv.Shutdown(shutdownCtx)
+	}()
+
 	log.Printf("listening on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, r))
+	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		log.Fatalf("server error: %v", err)
+	}
+	log.Println("server stopped")
 }
 
 func envOr(key, fallback string) string {
