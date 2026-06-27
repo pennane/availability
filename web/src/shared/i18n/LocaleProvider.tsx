@@ -1,4 +1,4 @@
-import { useState, useCallback, createContext, useContext, type ReactNode } from 'react'
+import { useState, useCallback, useEffect, createContext, useContext, type ReactNode } from 'react'
 import { IntlProvider } from 'react-intl'
 import fi from './fi.json'
 
@@ -38,6 +38,10 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, l)
     setLocaleState(l)
   }, [])
+
+  useEffect(() => {
+    document.documentElement.lang = locale
+  }, [locale])
 
   return (
     <LocaleContext value={{ locale, setLocale, supported: SUPPORTED }}>

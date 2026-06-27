@@ -23,8 +23,6 @@ export function generateSlotRows(config: TimeSlotConfig): GridRow[] {
   return rows
 }
 
-const weekdayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'short' })
-
 function toDate(iso: string): Date {
   return new Date(iso + 'T12:00:00')
 }
@@ -44,8 +42,22 @@ function getMonday(d: Date): Date {
   return result
 }
 
-export function buildCalendarWeeks(columns: GridColumn[]): CalendarWeek[] {
+let cachedLocale: string | undefined
+let weekdayFmt: Intl.DateTimeFormat
+let shortDateFmt: Intl.DateTimeFormat
+let monthFmt: Intl.DateTimeFormat
+
+function ensureFormatters(locale: string) {
+  if (locale === cachedLocale) return
+  cachedLocale = locale
+  weekdayFmt = new Intl.DateTimeFormat(locale, { weekday: 'short' })
+  shortDateFmt = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' })
+  monthFmt = new Intl.DateTimeFormat(locale, { month: 'short' })
+}
+
+export function buildCalendarWeeks(columns: GridColumn[], locale: string): CalendarWeek[] {
   if (columns.length === 0) return []
+  ensureFormatters(locale)
 
   const activeMap = new Map<string, string>()
   for (const col of columns) {
@@ -70,7 +82,7 @@ export function buildCalendarWeeks(columns: GridColumn[]): CalendarWeek[] {
       days.push({
         date: iso,
         dayNum: d.getDate(),
-        weekday: weekdayFormatter.format(d),
+        weekday: weekdayFmt.format(d),
         active: eventDateId !== undefined,
         eventDateId,
       })
@@ -82,20 +94,18 @@ export function buildCalendarWeeks(columns: GridColumn[]): CalendarWeek[] {
   return weeks
 }
 
-const shortDateFormatter = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' })
-
-export function weekRangeLabel(week: CalendarWeek): string {
+export function weekRangeLabel(week: CalendarWeek, locale: string): string {
+  ensureFormatters(locale)
   const first = week.days[0]
   const last = week.days[week.days.length - 1]
-  return shortDateFormatter.formatRange(toDate(first.date), toDate(last.date))
+  return shortDateFmt.formatRange(toDate(first.date), toDate(last.date))
 }
 
-const monthFormatter = new Intl.DateTimeFormat(undefined, { month: 'short' })
-
-export function monthLabel(day: CalendarDay, prevDay: CalendarDay | undefined): string | null {
+export function monthLabel(day: CalendarDay, prevDay: CalendarDay | undefined, locale: string): string | null {
+  ensureFormatters(locale)
   const d = toDate(day.date)
-  if (!prevDay) return monthFormatter.format(d)
+  if (!prevDay) return monthFmt.format(d)
   const prevMonth = toDate(prevDay.date).getMonth()
-  if (d.getMonth() !== prevMonth) return monthFormatter.format(d)
+  if (d.getMonth() !== prevMonth) return monthFmt.format(d)
   return null
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
-import { FormattedMessage } from 'react-intl'
+import { FormattedMessage, useIntl } from 'react-intl'
 import type { GridColumn, GridRow, CalendarDay, CalendarWeek } from '@/features/grid/types'
 import { buildCalendarWeeks, monthLabel } from '@/shared/grid/slots'
 
@@ -23,7 +23,7 @@ function toFullDatetime(date: string, time: string): string {
 
 function heatColor(availableRatio: number, ifNeededRatio: number): string {
   const total = availableRatio + ifNeededRatio
-  if (total === 0) return 'bg-gray-50'
+  if (total === 0) return 'bg-grid-empty'
   if (availableRatio === 0) {
     if (ifNeededRatio < 0.5) return 'bg-green-50'
     return 'bg-green-100'
@@ -52,11 +52,13 @@ function SlotPopover({
   total,
   namesVisible,
   onClose,
+  intl,
 }: {
   state: NonNullable<PopoverState>
   detail: SlotDetail
   total: number
   namesVisible: boolean
+  intl: ReturnType<typeof useIntl>
   onClose: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -102,7 +104,7 @@ function SlotPopover({
     }
   }, [onClose])
 
-  const dateStr = new Date(state.slot.split('T')[0] + 'T12:00:00').toLocaleDateString(undefined, {
+  const dateStr = intl.formatDate(new Date(state.slot.split('T')[0] + 'T12:00:00'), {
     weekday: 'long',
     month: 'short',
     day: 'numeric',
@@ -112,7 +114,7 @@ function SlotPopover({
     <div
       ref={ref}
       role="tooltip"
-      className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-3 text-sm max-w-56"
+      className="fixed z-50 bg-grid-surface border border-grid-border-strong rounded-lg shadow-lg p-3 text-sm max-w-56"
     >
       <div className="font-medium mb-1 text-xs text-gray-500">
         {state.slot.split('T')[1]} · {dateStr}
@@ -151,6 +153,7 @@ function HeatWeekColumns({
   total,
   popover,
   prevDayRef,
+  locale,
   onCellClick,
 }: {
   week: CalendarWeek
@@ -159,26 +162,27 @@ function HeatWeekColumns({
   total: number
   popover: PopoverState
   prevDayRef: { current: CalendarDay | undefined }
+  locale: string
   onCellClick: (e: React.MouseEvent, eventDateId: string, slot: string) => void
 }) {
   return (
-    <div className="flex flex-1 border-l-2 border-gray-300">
+    <div className="flex flex-1 border-l-2 border-grid-border-strong">
       {week.days.map((day) => {
-        const ml = monthLabel(day, prevDayRef.current)
+        const ml = monthLabel(day, prevDayRef.current, locale)
         prevDayRef.current = day
 
         if (!day.active) {
           return (
             <div key={day.date} className="min-w-10 flex-1">
-              <div className="h-12 border-b border-gray-200 text-center sticky top-0 bg-gray-50 z-10 flex flex-col justify-end pb-0.5">
+              <div className="h-12 border-b border-grid-border text-center sticky top-0 bg-grid-muted z-10 flex flex-col justify-end pb-0.5">
                 {ml && (
-                  <span className="text-[9px] text-gray-300 font-medium leading-none">{ml}</span>
+                  <span className="text-[9px] text-grid-text-ghost font-medium leading-none">{ml}</span>
                 )}
-                <span className="text-[10px] text-gray-200 leading-none">{day.weekday}</span>
-                <span className="text-xs text-gray-200 font-medium leading-tight">{day.dayNum}</span>
+                <span className="text-[10px] text-grid-text-ghost leading-none">{day.weekday}</span>
+                <span className="text-xs text-grid-text-ghost font-medium leading-tight">{day.dayNum}</span>
               </div>
               {rows.map((row) => (
-                <div key={row.slot} className="h-6 border-b border-r border-gray-100 bg-gray-50" />
+                <div key={row.slot} className="h-6 border-b border-r border-grid-border bg-grid-muted" />
               ))}
             </div>
           )
@@ -186,11 +190,11 @@ function HeatWeekColumns({
 
         return (
           <div key={day.eventDateId} className="min-w-10 flex-1">
-            <div className="h-12 border-b border-gray-300 text-center sticky top-0 bg-white z-10 flex flex-col justify-end pb-0.5">
+            <div className="h-12 border-b border-grid-border-strong text-center sticky top-0 bg-grid-surface z-10 flex flex-col justify-end pb-0.5">
               {ml && (
-                <span className="text-[9px] text-gray-400 font-medium leading-none">{ml}</span>
+                <span className="text-[9px] text-grid-text-faint font-medium leading-none">{ml}</span>
               )}
-              <span className="text-[10px] text-gray-400 leading-none">{day.weekday}</span>
+              <span className="text-[10px] text-grid-text-faint leading-none">{day.weekday}</span>
               <span className="text-xs font-medium leading-tight">{day.dayNum}</span>
             </div>
             {rows.map((row) => {
@@ -208,7 +212,7 @@ function HeatWeekColumns({
               return (
                 <div
                   key={fullSlot}
-                  className={`h-6 border-b border-r border-gray-200 cursor-pointer flex items-center justify-center text-[9px] font-medium ${heatColor(availRatio, ifNeededRatio)} ${isSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
+                  className={`h-6 border-b border-r border-grid-border cursor-pointer flex items-center justify-center text-[9px] font-medium ${heatColor(availRatio, ifNeededRatio)} ${isSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
                   onClick={(e) => onCellClick(e, day.eventDateId!, fullSlot)}
                 >
                   {count > 0 && (
@@ -228,12 +232,12 @@ function HeatWeekColumns({
 
 function TimeLabels({ rows }: { rows: GridRow[] }) {
   return (
-    <div className="sticky left-0 z-20 bg-white flex-shrink-0 w-10 sm:w-14">
-      <div className="h-12 border-b border-gray-300" />
+    <div className="sticky left-0 z-20 bg-grid-surface flex-shrink-0 w-10 sm:w-14">
+      <div className="h-12 border-b border-grid-border-strong" />
       {rows.map((row) => (
         <div
           key={row.slot}
-          className="h-6 text-[10px] text-gray-500 text-right pr-1.5 flex items-center justify-end border-b border-gray-100"
+          className="h-6 text-[10px] text-grid-text-muted text-right pr-1.5 flex items-center justify-end border-b border-grid-border"
         >
           {row.slot}
         </div>
@@ -243,8 +247,9 @@ function TimeLabels({ rows }: { rows: GridRow[] }) {
 }
 
 export function HeatmapView({ columns, rows, participants, namesVisible, weekIndex }: Props) {
+  const intl = useIntl()
   const [popover, setPopover] = useState<PopoverState>(null)
-  const weeks = useMemo(() => buildCalendarWeeks(columns), [columns])
+  const weeks = useMemo(() => buildCalendarWeeks(columns, intl.locale), [columns, intl.locale])
   const total = participants.length
   const safeIndex = Math.min(weekIndex, Math.max(0, weeks.length - 1))
   const currentWeek = weeks[safeIndex] as CalendarWeek | undefined
@@ -299,6 +304,7 @@ export function HeatmapView({ columns, rows, participants, namesVisible, weekInd
     total,
     popover,
     prevDayRef,
+    locale: intl.locale,
     onCellClick: handleCellClick,
   }
 
@@ -306,7 +312,7 @@ export function HeatmapView({ columns, rows, participants, namesVisible, weekInd
     <div>
       {/* Desktop: all weeks */}
       <div className="hidden sm:block">
-        <div className="overflow-auto max-h-[70vh] border border-gray-300 rounded">
+        <div className="overflow-auto max-h-[70vh] border border-grid-border-strong rounded">
           <div className="flex">
             <TimeLabels rows={rows} />
             {(() => { prevDayRef.current = undefined; return null })()}
@@ -319,7 +325,7 @@ export function HeatmapView({ columns, rows, participants, namesVisible, weekInd
 
       {/* Mobile: single week */}
       <div className="sm:hidden">
-        <div className="overflow-auto max-h-[70vh] border border-gray-300 rounded">
+        <div className="overflow-auto max-h-[70vh] border border-grid-border-strong rounded">
           <div className="flex">
             <TimeLabels rows={rows} />
             {(() => { prevDayRef.current = undefined; return null })()}
@@ -337,6 +343,7 @@ export function HeatmapView({ columns, rows, participants, namesVisible, weekInd
           total={total}
           namesVisible={namesVisible}
           onClose={closePopover}
+          intl={intl}
         />
       )}
     </div>

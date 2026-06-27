@@ -30,10 +30,10 @@
   "event.yourNamePlaceholder": "Nimesi",
   "event.copyLink": "Kopioi henkilökohtainen linkki",
   "event.copyLinkCopied": "Kopioitu!",
-  "event.copyLinkSuffix": "muokataksesi myöhemmin",
+  "event.copyLinkSuffix": "muokataksesi saatavuuttasi myöhemmin",
   "event.notFound": "Tapahtumaa ei löytynyt",
   "event.spectatorNotice": "Katselet tätä tapahtumaa. Osallistuaksesi tarvitset kutsulinkin järjestäjältä.",
-  "event.groupAvailability": "Ryhmä",
+  "event.groupAvailability": "Ryhmän saatavuus",
 
   "event.respondents": "Vastaajat ({count})",
   "event.anonymous": "Anonyymi",

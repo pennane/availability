@@ -5,6 +5,7 @@ import { FormattedMessage, useIntl } from 'react-intl'
 import { api } from '@/shared/api/client'
 import { setToken, getKnownEvents } from '@/shared/api/token'
 import { LocaleSwitcher } from '@/shared/i18n/LocaleSwitcher'
+import { ThemeSwitcher } from '@/shared/theme/ThemeSwitcher'
 import { DatePicker } from './DatePicker'
 
 export function CreateEventPage() {
@@ -73,7 +74,10 @@ export function CreateEventPage() {
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold"><FormattedMessage id="create.title" defaultMessage="Create Event" /></h1>
-        <LocaleSwitcher />
+        <div className="flex items-center gap-2">
+          <ThemeSwitcher />
+          <LocaleSwitcher />
+        </div>
       </div>
 
       <TextField className="mb-4" value={title} onChange={setTitle}>

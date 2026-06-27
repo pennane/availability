@@ -21,22 +21,12 @@ import type { SlotEntry, GridColumn } from '@/features/grid/types'
 import type { components } from '@/shared/api/generated/schema'
 import { FormattedMessage, useIntl } from 'react-intl'
 import { LocaleSwitcher } from '@/shared/i18n/LocaleSwitcher'
+import { ThemeSwitcher } from '@/shared/theme/ThemeSwitcher'
 
 type AuthenticatedView =
   | components['schemas']['ParticipantEventView']
   | components['schemas']['HostEventView']
 type Participant = components['schemas']['ParticipantWithAvailability']
-
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  weekday: 'short',
-  month: 'short',
-  day: 'numeric'
-})
-
-const dateRangeFormatter = new Intl.DateTimeFormat(undefined, {
-  month: 'short',
-  day: 'numeric'
-})
 
 type DateScore = {
   date: string
@@ -198,7 +188,11 @@ function GroupSummary({
               return (
                 <div key={d.eventDateId} className="flex items-center gap-2">
                   <span className="text-sm font-medium w-28 flex-shrink-0">
-                    {dateFormatter.format(new Date(d.date + 'T12:00:00'))}
+                    {intl.formatDate(new Date(d.date + 'T12:00:00'), {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric'
+                    })}
                   </span>
                   <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden flex">
                     {d.available.length > 0 && (
@@ -239,12 +233,8 @@ function isAuthenticated(
   return data.role === 'participant' || data.role === 'host'
 }
 
-const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short'
-})
-
 function ShareLinkManager({ eventId }: { eventId: string }) {
+  const intl = useIntl()
   const queryClient = useQueryClient()
 
   const createMutation = useMutation({
@@ -312,7 +302,8 @@ function ShareLinkManager({ eventId }: { eventId: string }) {
       {shareLinks.map((link) => (
         <div key={link.id} className="flex items-center gap-2 text-sm">
           <span className="text-xs text-gray-400 flex-shrink-0">
-            {dateTimeFormatter.format(new Date(link.createdAt))}
+            {intl.formatDate(new Date(link.createdAt), { dateStyle: 'medium' })}{' '}
+            {intl.formatTime(new Date(link.createdAt), { timeStyle: 'short' })}
           </span>
           <button
             onClick={() => copyLink(link.token)}
@@ -373,7 +364,7 @@ function DateSuggestion({ eventId }: { eventId: string }) {
       <button
         onClick={() => suggestMutation.mutate()}
         disabled={!date || suggestMutation.isPending}
-        className="text-sm px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded border disabled:opacity-50 cursor-pointer"
+        className="text-sm px-3 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded border disabled:opacity-50 cursor-pointer"
       >
         <FormattedMessage id="event.suggestButton" defaultMessage="Suggest" />
       </button>
@@ -575,7 +566,7 @@ function CopyMyLink({ eventId }: { eventId: string }) {
       </button>{' '}
       <FormattedMessage
         id="event.copyLinkSuffix"
-        defaultMessage="to edit later"
+        defaultMessage="to edit your availability later"
       />
     </p>
   )
@@ -594,7 +585,7 @@ function HowItWorks({
         if (e.target === e.currentTarget) dialogRef.current?.close()
       }}
     >
-      <div className="p-5 space-y-4">
+      <div className="p-5 space-y-4 bg-white">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-gray-800">
             <FormattedMessage
@@ -748,6 +739,7 @@ function SpectatorView({
 }: {
   data: components['schemas']['PublicEventView']
 }) {
+  const intl = useIntl()
   const columns: GridColumn[] = data.dates.map((d) => ({
     eventDateId: d.id,
     date: d.date
@@ -764,15 +756,17 @@ function SpectatorView({
         <p className="text-xs text-gray-400 mt-1">
           {columns.length > 0 && (
             <>
-              {dateRangeFormatter.format(
-                new Date(columns[0].date + 'T12:00:00')
-              )}
+              {intl.formatDate(new Date(columns[0].date + 'T12:00:00'), {
+                month: 'short',
+                day: 'numeric'
+              })}
               {columns.length > 1 && (
                 <>
                   {' '}
                   –{' '}
-                  {dateRangeFormatter.format(
-                    new Date(columns[columns.length - 1].date + 'T12:00:00')
+                  {intl.formatDate(
+                    new Date(columns[columns.length - 1].date + 'T12:00:00'),
+                    { month: 'short', day: 'numeric' }
                   )}
                 </>
               )}
@@ -795,7 +789,7 @@ function SpectatorView({
           <h2 className="text-sm font-semibold text-gray-700 mb-2">
             <FormattedMessage
               id="event.groupAvailability"
-              defaultMessage="Group"
+              defaultMessage="Group's availability"
             />
           </h2>
           <HeatmapView
@@ -926,7 +920,10 @@ export function EventView({ eventId }: { eventId: string }) {
     return data.dates.map((d) => ({ eventDateId: d.id, date: d.date }))
   }, [data])
 
-  const weeks = useMemo(() => buildCalendarWeeks(columns), [columns])
+  const weeks = useMemo(
+    () => buildCalendarWeeks(columns, intl.locale),
+    [columns, intl.locale]
+  )
 
   useEffect(() => {
     if (data && isAuthenticated(data)) {
@@ -958,7 +955,7 @@ export function EventView({ eventId }: { eventId: string }) {
   const suggestionsOpen = authedData.suggestions.kind === 'open'
 
   return (
-    <div className="max-w-5xl mx-auto p-4">
+    <div className="max-w-5xl mx-auto p-4 mb-10">
       {/* Header */}
       <div className="mb-4">
         <div className="flex items-start justify-between gap-2">
@@ -972,15 +969,19 @@ export function EventView({ eventId }: { eventId: string }) {
             <p className="text-xs text-gray-400 mt-1">
               {columns.length > 0 && (
                 <>
-                  {dateRangeFormatter.format(
-                    new Date(columns[0].date + 'T12:00:00')
-                  )}
+                  {intl.formatDate(new Date(columns[0].date + 'T12:00:00'), {
+                    month: 'short',
+                    day: 'numeric'
+                  })}
                   {columns.length > 1 && (
                     <>
                       {' '}
                       –{' '}
-                      {dateRangeFormatter.format(
-                        new Date(columns[columns.length - 1].date + 'T12:00:00')
+                      {intl.formatDate(
+                        new Date(
+                          columns[columns.length - 1].date + 'T12:00:00'
+                        ),
+                        { month: 'short', day: 'numeric' }
                       )}
                     </>
                   )}
@@ -991,6 +992,7 @@ export function EventView({ eventId }: { eventId: string }) {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <ThemeSwitcher />
             <LocaleSwitcher />
             <button
               onClick={() => howItWorksRef.current?.showModal()}
@@ -1033,7 +1035,7 @@ export function EventView({ eventId }: { eventId: string }) {
           weekIndex={weekIndex}
           onWeekIndexChange={setWeekIndex}
         />
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 justify-between">
           {myData.data && (
             <>
               <span className="flex items-center gap-1.5">

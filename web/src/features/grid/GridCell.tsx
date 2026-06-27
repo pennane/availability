@@ -1,7 +1,7 @@
 import type { CellState } from './types'
 
 const STATE_CLASSES: Record<CellState, string> = {
-  empty: 'bg-gray-50 hover:bg-gray-100',
+  empty: 'bg-grid-empty hover:bg-grid-empty-hover',
   available: 'bg-green-400',
   'if-needed': 'bg-yellow-300',
 }
@@ -25,7 +25,7 @@ export function GridCell({ state, rowIndex, onPointerDown, onPointerEnter }: Pro
       role="checkbox"
       aria-checked={state === 'if-needed' ? 'mixed' : state !== 'empty'}
       aria-label={STATE_LABELS[state]}
-      className={`h-6 min-h-6 border-b border-r border-gray-200 cursor-pointer select-none touch-none ${STATE_CLASSES[state]}`}
+      className={`h-6 min-h-6 border-b border-r border-grid-border cursor-pointer select-none touch-none ${STATE_CLASSES[state]}`}
       onPointerDown={(e) => {
         e.preventDefault()
         ;(e.target as HTMLElement).releasePointerCapture(e.pointerId)

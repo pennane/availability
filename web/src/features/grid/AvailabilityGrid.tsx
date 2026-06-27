@@ -45,8 +45,8 @@ const DAY_STATE_LABELS: Record<DayCheckState, string> = {
 const DAY_STATE_STYLES: Record<DayCheckState, { bg: string; text: string; sub: string }> = {
   'all-available': { bg: 'bg-green-100', text: 'text-green-900', sub: 'text-green-700' },
   'all-if-needed': { bg: 'bg-yellow-100', text: 'text-yellow-900', sub: 'text-yellow-700' },
-  mixed: { bg: 'bg-green-50', text: 'text-gray-800', sub: 'text-gray-500' },
-  none: { bg: 'bg-gray-100', text: 'text-gray-700', sub: 'text-gray-400' },
+  mixed: { bg: 'bg-grid-header-mixed-bg', text: 'text-grid-header-mixed-text', sub: 'text-grid-header-mixed-sub' },
+  none: { bg: 'bg-grid-header-none-bg', text: 'text-grid-header-none-text', sub: 'text-grid-header-none-sub' },
 }
 
 type GridRow = { slot: string; datetime: string }
@@ -55,6 +55,7 @@ function WeekColumns({
   week,
   rows,
   prevDayRef,
+  locale,
   getState,
   getDayState,
   toggleDay,
@@ -64,6 +65,7 @@ function WeekColumns({
   week: CalendarWeek
   rows: GridRow[]
   prevDayRef: { current: CalendarDay | undefined }
+  locale: string
   getState: (eventDateId: string, slot: string) => CellState
   getDayState: (eventDateId: string, date: string) => DayCheckState
   toggleDay: (eventDateId: string, date: string, targetState: 'available' | 'if-needed') => void
@@ -71,25 +73,25 @@ function WeekColumns({
   onPointerEnter: (eventDateId: string, slot: string, rowIndex: number) => void
 }) {
   return (
-    <div className="flex flex-1 border-l-2 border-gray-300">
+    <div className="flex flex-1 border-l-2 border-grid-border-strong">
       {week.days.map((day) => {
-        const ml = monthLabel(day, prevDayRef.current)
+        const ml = monthLabel(day, prevDayRef.current, locale)
         prevDayRef.current = day
 
         if (!day.active) {
           return (
             <div key={day.date} className="min-w-10 flex-1">
-              <div className="h-12 border-b border-gray-200 text-center sticky top-0 bg-gray-50 z-10 flex flex-col justify-end pb-0.5">
+              <div className="h-12 border-b border-grid-border text-center sticky top-0 bg-grid-muted z-10 flex flex-col justify-end pb-0.5">
                 {ml && (
-                  <span className="text-[9px] text-gray-300 font-medium leading-none">{ml}</span>
+                  <span className="text-[9px] text-grid-text-ghost font-medium leading-none">{ml}</span>
                 )}
-                <span className="text-[10px] text-gray-200 leading-none">{day.weekday}</span>
-                <span className="text-xs text-gray-200 font-medium leading-tight">{day.dayNum}</span>
+                <span className="text-[10px] text-grid-text-ghost leading-none">{day.weekday}</span>
+                <span className="text-xs text-grid-text-ghost font-medium leading-tight">{day.dayNum}</span>
               </div>
               {rows.map((row) => (
                 <div
                   key={row.slot}
-                  className="h-6 border-b border-r border-gray-100 bg-gray-50"
+                  className="h-6 border-b border-r border-grid-border bg-grid-muted"
                 />
               ))}
             </div>
@@ -104,7 +106,7 @@ function WeekColumns({
               role="checkbox"
               aria-checked={dayAriaChecked(dayState)}
               aria-label={`${day.weekday} ${day.dayNum} — ${DAY_STATE_LABELS[dayState]}`}
-              className={`h-12 border-b border-gray-300 text-center sticky top-0 ${styles.bg} z-10 flex flex-col justify-end pb-0.5 cursor-pointer hover:brightness-95 transition-all`}
+              className={`h-12 border-b border-grid-border-strong text-center sticky top-0 ${styles.bg} z-10 flex flex-col justify-end pb-0.5 cursor-pointer hover:brightness-95 transition-all`}
               onClick={() => toggleDay(day.eventDateId!, day.date, 'available')}
               onContextMenu={(e) => {
                 e.preventDefault()
@@ -147,6 +149,7 @@ export function WeekMinimap({
   currentIndex: number
   onSelect: (index: number) => void
 }) {
+  const intl = useIntl()
   const weekScores = useMemo(() => {
     const availableDates = new Set(
       entries.filter((e) => e.state === 'available').map((e) => e.eventDateId),
@@ -185,13 +188,13 @@ export function WeekMinimap({
             onClick={() => onSelect(i)}
             className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded text-[10px] ring-1 ring-inset transition-colors cursor-pointer ${
               i === currentIndex
-                ? 'ring-blue-400 bg-blue-50 text-blue-700'
-                : 'ring-transparent text-gray-400 hover:bg-gray-100'
+                ? 'ring-grid-minimap-active-ring bg-grid-minimap-active-bg text-grid-minimap-active-text'
+                : 'ring-transparent text-grid-text-faint hover:bg-grid-empty-hover'
             }`}
             aria-label={`Week ${i + 1}`}
             aria-current={i === currentIndex ? 'true' : undefined}
           >
-            <span>{weekRangeLabel(week)}</span>
+            <span>{weekRangeLabel(week, intl.locale)}</span>
             <span className={`block w-full h-1 rounded-full ${barColor}`} />
           </button>
         )
@@ -210,7 +213,7 @@ export function AvailabilityGrid({
 }: Props) {
   const intl = useIntl()
   const rows = useMemo(() => generateSlotRows(timeSlotConfig), [timeSlotConfig])
-  const weeks = useMemo(() => buildCalendarWeeks(columns), [columns])
+  const weeks = useMemo(() => buildCalendarWeeks(columns, intl.locale), [columns, intl.locale])
   const { getState, onPointerDown, onPointerEnter, onPointerUp, setSlotList, toggleDay } =
     useGridInteraction({ entries, onChange })
   const desktopScrollRef = useRef<HTMLDivElement>(null)
@@ -219,6 +222,22 @@ export function AvailabilityGrid({
   const currentWeek = weeks[safeIndex] as CalendarWeek | undefined
   const hasPrev = safeIndex > 0
   const hasNext = safeIndex < weeks.length - 1
+
+  useEffect(() => {
+    const container = desktopScrollRef.current
+    if (!container || container.clientWidth === 0) return
+    const inner = container.firstElementChild as HTMLElement | null
+    if (!inner) return
+    const weekEl = inner.children[safeIndex + 1] as HTMLElement
+    if (!weekEl) return
+    const containerRect = container.getBoundingClientRect()
+    const weekRect = weekEl.getBoundingClientRect()
+    const labelWidth = (inner.children[0] as HTMLElement).offsetWidth
+    container.scrollTo({
+      left: container.scrollLeft + weekRect.left - containerRect.left - labelWidth,
+      behavior: 'smooth',
+    })
+  }, [safeIndex])
 
   const getDayState = useCallback(
     (eventDateId: string, date: string): DayCheckState => {
@@ -242,6 +261,7 @@ export function AvailabilityGrid({
   const sharedProps = {
     rows,
     prevDayRef,
+    locale: intl.locale,
     getState,
     getDayState,
     toggleDay,
@@ -253,14 +273,14 @@ export function AvailabilityGrid({
     <div role="grid" aria-label="Availability grid" onPointerUp={onPointerUp} onPointerLeave={onPointerUp}>
       {/* Desktop: all weeks */}
       <div className="hidden sm:block">
-        <div ref={desktopScrollRef} className="overflow-auto max-h-[70vh] border border-gray-300 rounded">
+        <div ref={desktopScrollRef} className="overflow-auto max-h-[70vh] border border-grid-border-strong rounded">
           <div className="flex">
-            <div className="sticky left-0 z-20 bg-white flex-shrink-0 w-10 sm:w-14">
-              <div className="h-12 border-b border-gray-300" />
+            <div className="sticky left-0 z-20 bg-grid-surface flex-shrink-0 w-10 sm:w-14">
+              <div className="h-12 border-b border-grid-border-strong" />
               {rows.map((row) => (
                 <div
                   key={row.slot}
-                  className="h-6 text-[10px] text-gray-500 text-right pr-1.5 flex items-center justify-end border-b border-gray-100"
+                  className="h-6 text-[10px] text-grid-text-muted text-right pr-1.5 flex items-center justify-end border-b border-grid-border"
                 >
                   {row.slot}
                 </div>
@@ -280,31 +300,31 @@ export function AvailabilityGrid({
           <button
             onClick={() => onWeekIndexChange(safeIndex - 1)}
             disabled={!hasPrev}
-            className="p-1.5 text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30"
+            className="p-1.5 text-grid-text-muted hover:bg-grid-empty-hover rounded disabled:opacity-30"
             aria-label={intl.formatMessage({ id: 'grid.previousWeek', defaultMessage: 'Previous week' })}
           >
             &larr;
           </button>
-          <span className="text-xs text-gray-500 font-medium">
+          <span className="text-xs text-grid-text-muted font-medium">
             <FormattedMessage id="grid.weekOf" defaultMessage="Week {current} / {total}" values={{ current: safeIndex + 1, total: weeks.length }} />
           </span>
           <button
             onClick={() => onWeekIndexChange(safeIndex + 1)}
             disabled={!hasNext}
-            className="p-1.5 text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30"
+            className="p-1.5 text-grid-text-muted hover:bg-grid-empty-hover rounded disabled:opacity-30"
             aria-label={intl.formatMessage({ id: 'grid.nextWeek', defaultMessage: 'Next week' })}
           >
             &rarr;
           </button>
         </div>
-        <div className="overflow-auto max-h-[70vh] border border-gray-300 rounded">
+        <div className="overflow-auto max-h-[70vh] border border-grid-border-strong rounded">
           <div className="flex">
-            <div className="sticky left-0 z-20 bg-white flex-shrink-0 w-10 sm:w-14">
-              <div className="h-12 border-b border-gray-300" />
+            <div className="sticky left-0 z-20 bg-grid-surface flex-shrink-0 w-10 sm:w-14">
+              <div className="h-12 border-b border-grid-border-strong" />
               {rows.map((row) => (
                 <div
                   key={row.slot}
-                  className="h-6 text-[10px] text-gray-500 text-right pr-1.5 flex items-center justify-end border-b border-gray-100"
+                  className="h-6 text-[10px] text-grid-text-muted text-right pr-1.5 flex items-center justify-end border-b border-grid-border"
                 >
                   {row.slot}
                 </div>
