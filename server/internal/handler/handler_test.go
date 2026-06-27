@@ -25,6 +25,7 @@ func setupServer(t *testing.T) (*chi.Mux, func()) {
 		repository.NewSQLiteParticipantRepo(database),
 		repository.NewSQLiteEventDateRepo(database),
 		repository.NewSQLiteAvailabilityRepo(database),
+		repository.NewSQLiteShareLinkRepo(database),
 		ws.NewBroadcast(),
 	)
 
@@ -51,8 +52,37 @@ func setupServer(t *testing.T) (*chi.Mux, func()) {
 	r.Post("/events/{eventId}/dates", func(w http.ResponseWriter, req *http.Request) {
 		h.SuggestDate(w, req, chi.URLParam(req, "eventId"))
 	})
+	r.Post("/events/{eventId}/share-links", func(w http.ResponseWriter, req *http.Request) {
+		h.CreateShareLink(w, req, chi.URLParam(req, "eventId"))
+	})
+	r.Get("/events/{eventId}/share-links", func(w http.ResponseWriter, req *http.Request) {
+		h.ListShareLinks(w, req, chi.URLParam(req, "eventId"))
+	})
+	r.Delete("/events/{eventId}/share-links/{linkId}", func(w http.ResponseWriter, req *http.Request) {
+		h.DeleteShareLink(w, req, chi.URLParam(req, "eventId"), chi.URLParam(req, "linkId"))
+	})
+	r.Get("/events/{eventId}/invite/{token}", func(w http.ResponseWriter, req *http.Request) {
+		h.ValidateShareToken(w, req, chi.URLParam(req, "eventId"), chi.URLParam(req, "token"))
+	})
 
 	return r, func() { database.Close() }
+}
+
+// createShareLink creates a share link for the given event using the host token
+// and returns the share token string.
+func createShareLink(t *testing.T, r *chi.Mux, eventID, hostToken string) string {
+	t.Helper()
+	req := httptest.NewRequest("POST", "/events/"+eventID+"/share-links", bytes.NewBufferString(`{"label":"test"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+hostToken)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create share link status = %d, want 201. body: %s", w.Code, w.Body.String())
+	}
+	var resp map[string]any
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	return resp["token"].(string)
 }
 
 func TestCreateAndGetEvent(t *testing.T) {
@@ -133,9 +163,13 @@ func TestJoinEvent(t *testing.T) {
 	var createResp map[string]string
 	json.Unmarshal(w.Body.Bytes(), &createResp)
 	eventID := createResp["eventId"]
+	hostToken := createResp["hostToken"]
+
+	// Create share link
+	shareToken := createShareLink(t, r, eventID, hostToken)
 
 	// Join event
-	joinBody := `{"name": "Alice"}`
+	joinBody := `{"name": "Alice", "shareToken": "` + shareToken + `"}`
 	req = httptest.NewRequest("POST", "/events/"+eventID+"/me", bytes.NewBufferString(joinBody))
 	req.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
@@ -188,6 +222,7 @@ func TestReplaceAvailability(t *testing.T) {
 	var createResp map[string]string
 	json.Unmarshal(w.Body.Bytes(), &createResp)
 	eventID := createResp["eventId"]
+	hostToken := createResp["hostToken"]
 
 	// Get dates to find eventDateId
 	req = httptest.NewRequest("GET", "/events/"+eventID, nil)
@@ -199,8 +234,9 @@ func TestReplaceAvailability(t *testing.T) {
 	dates := eventResp["dates"].([]any)
 	eventDateID := dates[0].(map[string]any)["id"].(string)
 
-	// Join event
-	req = httptest.NewRequest("POST", "/events/"+eventID+"/me", bytes.NewBufferString(`{"name":"Bob"}`))
+	// Create share link and join event
+	shareToken := createShareLink(t, r, eventID, hostToken)
+	req = httptest.NewRequest("POST", "/events/"+eventID+"/me", bytes.NewBufferString(`{"name":"Bob","shareToken":"`+shareToken+`"}`))
 	req.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -254,8 +290,10 @@ func TestGetMyParticipation(t *testing.T) {
 	var createResp map[string]string
 	json.Unmarshal(w.Body.Bytes(), &createResp)
 	eventID := createResp["eventId"]
+	hostToken := createResp["hostToken"]
 
-	req = httptest.NewRequest("POST", "/events/"+eventID+"/me", bytes.NewBufferString(`{"name":"Carol"}`))
+	shareToken := createShareLink(t, r, eventID, hostToken)
+	req = httptest.NewRequest("POST", "/events/"+eventID+"/me", bytes.NewBufferString(`{"name":"Carol","shareToken":"`+shareToken+`"}`))
 	req.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -338,9 +376,11 @@ func TestSuggestDate(t *testing.T) {
 	var createResp map[string]string
 	json.Unmarshal(w.Body.Bytes(), &createResp)
 	eventID := createResp["eventId"]
+	hostToken := createResp["hostToken"]
 
-	// Join event
-	req = httptest.NewRequest("POST", "/events/"+eventID+"/me", bytes.NewBufferString(`{"name":"Dave"}`))
+	// Create share link and join event
+	shareToken := createShareLink(t, r, eventID, hostToken)
+	req = httptest.NewRequest("POST", "/events/"+eventID+"/me", bytes.NewBufferString(`{"name":"Dave","shareToken":"`+shareToken+`"}`))
 	req.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, req)

@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { TextField, Input, Label } from 'react-aria-components'
 import { api } from '@/shared/api/client'
 import { setToken } from '@/shared/api/token'
+import { DatePicker } from './DatePicker'
 
 export function CreateEventPage() {
   const navigate = useNavigate()
@@ -15,19 +16,7 @@ export function CreateEventPage() {
   const [visibility, setVisibility] = useState<'names-visible' | 'anonymous'>('names-visible')
   const [suggestions, setSuggestions] = useState<'open' | 'closed'>('open')
   const [dates, setDates] = useState<string[]>([])
-  const [dateInput, setDateInput] = useState('')
   const [submitting, setSubmitting] = useState(false)
-
-  const addDate = () => {
-    if (dateInput && !dates.includes(dateInput)) {
-      setDates([...dates, dateInput].sort())
-      setDateInput('')
-    }
-  }
-
-  const removeDate = (date: string) => {
-    setDates(dates.filter(d => d !== date))
-  }
 
   const submit = async () => {
     if (!title || dates.length === 0) return
@@ -75,7 +64,7 @@ export function CreateEventPage() {
 
       <div className="mb-4 grid grid-cols-3 gap-2">
         <div>
-          <label className="block text-sm font-medium mb-1">Duration</label>
+          <label className="block text-sm font-medium mb-1">Granularity</label>
           <select
             className="w-full border rounded px-3 py-2"
             value={durationMinutes}
@@ -90,6 +79,7 @@ export function CreateEventPage() {
           <label className="block text-sm font-medium mb-1">From</label>
           <input
             type="time"
+            step={900}
             className="w-full border rounded px-3 py-2"
             value={rangeStart}
             onChange={e => setRangeStart(e.target.value)}
@@ -99,6 +89,7 @@ export function CreateEventPage() {
           <label className="block text-sm font-medium mb-1">To</label>
           <input
             type="time"
+            step={900}
             className="w-full border rounded px-3 py-2"
             value={rangeEnd}
             onChange={e => setRangeEnd(e.target.value)}
@@ -132,28 +123,8 @@ export function CreateEventPage() {
       </div>
 
       <div className="mb-6">
-        <label className="block text-sm font-medium mb-1">Dates</label>
-        <div className="flex gap-2 mb-2">
-          <input
-            type="date"
-            className="flex-1 border rounded px-3 py-2"
-            value={dateInput}
-            onChange={e => setDateInput(e.target.value)}
-          />
-          <button className="px-4 py-2 bg-blue-500 text-white rounded" onClick={addDate}>
-            Add
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {dates.map(d => (
-            <span key={d} className="inline-flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-sm">
-              {d}
-              <button className="text-gray-500 hover:text-red-500" onClick={() => removeDate(d)}>
-                &times;
-              </button>
-            </span>
-          ))}
-        </div>
+        <label className="block text-sm font-medium mb-2">Dates</label>
+        <DatePicker selected={dates} onChange={setDates} />
       </div>
 
       <button

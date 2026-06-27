@@ -34,9 +34,10 @@ func main() {
 	participantRepo := repository.NewSQLiteParticipantRepo(database)
 	dateRepo := repository.NewSQLiteEventDateRepo(database)
 	availRepo := repository.NewSQLiteAvailabilityRepo(database)
+	shareLinkRepo := repository.NewSQLiteShareLinkRepo(database)
 	broadcast := ws.NewBroadcast()
 
-	h := handler.New(eventRepo, participantRepo, dateRepo, availRepo, broadcast)
+	h := handler.New(eventRepo, participantRepo, dateRepo, availRepo, shareLinkRepo, broadcast)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -69,6 +70,18 @@ func main() {
 	})
 	r.Post("/events/{eventId}/dates", func(w http.ResponseWriter, r *http.Request) {
 		h.SuggestDate(w, r, chi.URLParam(r, "eventId"))
+	})
+	r.Post("/events/{eventId}/share-links", func(w http.ResponseWriter, r *http.Request) {
+		h.CreateShareLink(w, r, chi.URLParam(r, "eventId"))
+	})
+	r.Get("/events/{eventId}/share-links", func(w http.ResponseWriter, r *http.Request) {
+		h.ListShareLinks(w, r, chi.URLParam(r, "eventId"))
+	})
+	r.Delete("/events/{eventId}/share-links/{linkId}", func(w http.ResponseWriter, r *http.Request) {
+		h.DeleteShareLink(w, r, chi.URLParam(r, "eventId"), chi.URLParam(r, "linkId"))
+	})
+	r.Get("/events/{eventId}/invite/{token}", func(w http.ResponseWriter, r *http.Request) {
+		h.ValidateShareToken(w, r, chi.URLParam(r, "eventId"), chi.URLParam(r, "token"))
 	})
 	r.Get("/events/{eventId}/live", func(w http.ResponseWriter, r *http.Request) {
 		h.HandleWebSocket(w, r, chi.URLParam(r, "eventId"))

@@ -14,22 +14,28 @@ const STATE_LABELS: Record<CellState, string> = {
 
 type Props = {
   state: CellState
-  onPointerDown: () => void
-  onPointerEnter: () => void
+  rowIndex: number
+  onPointerDown: (rowIndex: number, pointerType: string) => void
+  onPointerEnter: (rowIndex: number) => void
 }
 
-export function GridCell({ state, onPointerDown, onPointerEnter }: Props) {
+export function GridCell({ state, rowIndex, onPointerDown, onPointerEnter }: Props) {
   return (
     <div
-      role="gridcell"
+      role="checkbox"
+      aria-checked={state === 'if-needed' ? 'mixed' : state !== 'empty'}
       aria-label={STATE_LABELS[state]}
-      className={`h-8 border border-gray-200 cursor-pointer select-none touch-none ${STATE_CLASSES[state]}`}
+      className={`h-6 min-h-6 border-b border-r border-gray-200 cursor-pointer select-none touch-none ${STATE_CLASSES[state]}`}
       onPointerDown={(e) => {
         e.preventDefault()
         ;(e.target as HTMLElement).releasePointerCapture(e.pointerId)
-        onPointerDown()
+        onPointerDown(rowIndex, e.pointerType)
       }}
-      onPointerEnter={onPointerEnter}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        onPointerDown(rowIndex, 'context')
+      }}
+      onPointerEnter={() => onPointerEnter(rowIndex)}
     />
   )
 }

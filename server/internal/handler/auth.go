@@ -37,7 +37,8 @@ func (a *AuthResolver) Resolve(r *http.Request, eventID string) (Role, *domain.P
 	}
 
 	if event.HostToken == token {
-		return RoleHost, nil
+		participant, _ := a.participants.GetByToken(token)
+		return RoleHost, participant
 	}
 
 	participant, err := a.participants.GetByToken(token)

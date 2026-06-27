@@ -16,6 +16,7 @@ type Handler struct {
 	participants repository.ParticipantRepository
 	dates        repository.EventDateRepository
 	availability repository.AvailabilityRepository
+	shareLinks   repository.ShareLinkRepository
 	auth         *AuthResolver
 	broadcast    *ws.Broadcast
 }
@@ -25,6 +26,7 @@ func New(
 	participants repository.ParticipantRepository,
 	dates repository.EventDateRepository,
 	availability repository.AvailabilityRepository,
+	shareLinks repository.ShareLinkRepository,
 	broadcast *ws.Broadcast,
 ) *Handler {
 	return &Handler{
@@ -32,6 +34,7 @@ func New(
 		participants: participants,
 		dates:        dates,
 		availability: availability,
+		shareLinks:   shareLinks,
 		auth:         NewAuthResolver(events, participants),
 		broadcast:    broadcast,
 	}
@@ -98,6 +101,17 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	hostParticipant := domain.Participant{
+		ID:      domain.NewID(),
+		EventID: event.ID,
+		Name:    "Host",
+		Token:   event.HostToken,
+	}
+	if err := h.participants.Create(hostParticipant); err != nil {
+		http.Error(w, "failed to create host participant", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{
@@ -117,20 +131,21 @@ func (h *Handler) GetEvent(w http.ResponseWriter, r *http.Request, eventID strin
 		return
 	}
 
-	role, participant := h.auth.Resolve(r, eventID)
+	role, _ := h.auth.Resolve(r, eventID)
 	dates, _ := h.dates.GetByEventID(eventID)
 	event.Dates = dates
 
 	var response any
 	switch role {
-	case RoleHost:
+	case RoleHost, RoleParticipant:
 		participants, _ := h.participants.GetByEventID(eventID)
 		allAvail, _ := h.availability.GetByEventID(eventID)
-		response = buildHostView(event, participants, allAvail)
-	case RoleParticipant:
-		participants, _ := h.participants.GetByEventID(eventID)
-		allAvail, _ := h.availability.GetByEventID(eventID)
-		response = buildParticipantView(event, participant, participants, allAvail)
+		if role == RoleHost {
+			links, _ := h.shareLinks.GetByEventID(eventID)
+			response = buildHostView(event, participants, allAvail, links)
+		} else {
+			response = buildParticipantView(event, participants, allAvail)
+		}
 	default:
 		response = buildPublicView(event)
 	}
@@ -151,7 +166,8 @@ func (h *Handler) JoinEvent(w http.ResponseWriter, r *http.Request, eventID stri
 	}
 
 	var req struct {
-		Name string `json:"name"`
+		Name       string `json:"name"`
+		ShareToken string `json:"shareToken"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
@@ -159,6 +175,20 @@ func (h *Handler) JoinEvent(w http.ResponseWriter, r *http.Request, eventID stri
 	}
 	if req.Name == "" {
 		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+	if req.ShareToken == "" {
+		http.Error(w, "shareToken is required", http.StatusBadRequest)
+		return
+	}
+
+	link, err := h.shareLinks.GetByToken(req.ShareToken)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if link == nil || link.EventID != eventID {
+		http.Error(w, "invalid invite link", http.StatusForbidden)
 		return
 	}
 
@@ -190,7 +220,7 @@ func (h *Handler) JoinEvent(w http.ResponseWriter, r *http.Request, eventID stri
 
 func (h *Handler) GetMyParticipation(w http.ResponseWriter, r *http.Request, eventID string) {
 	role, participant := h.auth.Resolve(r, eventID)
-	if role != RoleParticipant || participant == nil {
+	if (role != RoleParticipant && role != RoleHost) || participant == nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -227,7 +257,7 @@ func (h *Handler) GetMyParticipation(w http.ResponseWriter, r *http.Request, eve
 
 func (h *Handler) UpdateMyParticipation(w http.ResponseWriter, r *http.Request, eventID string) {
 	role, participant := h.auth.Resolve(r, eventID)
-	if role != RoleParticipant || participant == nil {
+	if (role != RoleParticipant && role != RoleHost) || participant == nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -285,7 +315,7 @@ func (h *Handler) UpdateMyParticipation(w http.ResponseWriter, r *http.Request, 
 
 func (h *Handler) ReplaceAvailability(w http.ResponseWriter, r *http.Request, eventID string) {
 	role, participant := h.auth.Resolve(r, eventID)
-	if role != RoleParticipant || participant == nil {
+	if (role != RoleParticipant && role != RoleHost) || participant == nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -425,8 +455,10 @@ func (h *Handler) UpdateEvent(w http.ResponseWriter, r *http.Request, eventID st
 	dates, _ := h.dates.GetByEventID(eventID)
 	event.Dates = dates
 
+	links, _ := h.shareLinks.GetByEventID(eventID)
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(buildHostView(event, nil, nil))
+	json.NewEncoder(w).Encode(buildHostView(event, nil, nil, links))
 }
 
 func (h *Handler) SuggestDate(w http.ResponseWriter, r *http.Request, eventID string) {
@@ -513,6 +545,100 @@ func (h *Handler) SuggestDate(w http.ResponseWriter, r *http.Request, eventID st
 	json.NewEncoder(w).Encode(dateMap)
 }
 
+func (h *Handler) CreateShareLink(w http.ResponseWriter, r *http.Request, eventID string) {
+	role, _ := h.auth.Resolve(r, eventID)
+	if role != RoleHost {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	var req struct {
+		Label string `json:"label"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	link := domain.ShareLink{
+		ID:        domain.NewID(),
+		EventID:   eventID,
+		Token:     domain.NewToken(),
+		Label:     req.Label,
+		CreatedAt: time.Now(),
+	}
+
+	if err := h.shareLinks.Create(link); err != nil {
+		http.Error(w, "failed to create share link", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]any{
+		"id":        link.ID,
+		"token":     link.Token,
+		"label":     link.Label,
+		"createdAt": link.CreatedAt.Format(time.RFC3339),
+	})
+}
+
+func (h *Handler) ListShareLinks(w http.ResponseWriter, r *http.Request, eventID string) {
+	role, _ := h.auth.Resolve(r, eventID)
+	if role != RoleHost {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	links, err := h.shareLinks.GetByEventID(eventID)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"links": buildShareLinks(links),
+	})
+}
+
+func (h *Handler) DeleteShareLink(w http.ResponseWriter, r *http.Request, eventID string, linkID string) {
+	role, _ := h.auth.Resolve(r, eventID)
+	if role != RoleHost {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := h.shareLinks.Delete(linkID, eventID); err != nil {
+		http.Error(w, "failed to delete share link", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) ValidateShareToken(w http.ResponseWriter, r *http.Request, eventID string, token string) {
+	link, err := h.shareLinks.GetByToken(token)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if link == nil || link.EventID != eventID {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	event, err := h.events.GetByID(eventID)
+	if err != nil || event == nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"valid":       true,
+		"title":       event.Title,
+		"description": event.Description,
+	})
+}
+
 func parseVisibility(raw json.RawMessage) (domain.VisibilityPolicy, error) {
 	var v struct {
 		Kind string `json:"kind"`
@@ -561,16 +687,17 @@ func buildPublicView(event *domain.Event) map[string]any {
 	}
 }
 
-func buildHostView(event *domain.Event, participants []domain.Participant, allAvail map[string][]domain.AvailabilityEntry) map[string]any {
+func buildHostView(event *domain.Event, participants []domain.Participant, allAvail map[string][]domain.AvailabilityEntry, links []domain.ShareLink) map[string]any {
 	view := buildPublicView(event)
 	view["role"] = "host"
 	view["visibility"] = buildVisibility(event.Visibility)
 	view["suggestions"] = buildSuggestionPolicy(event.Suggestions)
 	view["participants"] = buildParticipantsWithAvailability(participants, allAvail)
+	view["shareLinks"] = buildShareLinks(links)
 	return view
 }
 
-func buildParticipantView(event *domain.Event, me *domain.Participant, participants []domain.Participant, allAvail map[string][]domain.AvailabilityEntry) map[string]any {
+func buildParticipantView(event *domain.Event, participants []domain.Participant, allAvail map[string][]domain.AvailabilityEntry) map[string]any {
 	view := buildPublicView(event)
 	view["role"] = "participant"
 	view["visibility"] = buildVisibility(event.Visibility)
@@ -621,6 +748,19 @@ func buildDates(dates []domain.EventDate) []map[string]any {
 			m["participantId"] = o.ParticipantID
 		}
 		result[i] = m
+	}
+	return result
+}
+
+func buildShareLinks(links []domain.ShareLink) []map[string]any {
+	result := make([]map[string]any, len(links))
+	for i, l := range links {
+		result[i] = map[string]any{
+			"id":        l.ID,
+			"token":     l.Token,
+			"label":     l.Label,
+			"createdAt": l.CreatedAt.Format(time.RFC3339),
+		}
 	}
 	return result
 }

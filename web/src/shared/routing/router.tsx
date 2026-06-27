@@ -1,7 +1,8 @@
 import { createRouter, createRoute, createRootRoute, redirect } from '@tanstack/react-router'
 import { CreateEventPage } from '@/features/event-config/CreateEventPage'
 import { EventView } from '@/features/join/EventView'
-import { setToken } from '@/shared/api/token'
+import { InviteResolver } from '@/features/join/InviteResolver'
+import { getToken } from '@/shared/api/token'
 
 const rootRoute = createRootRoute()
 
@@ -24,8 +25,13 @@ const eventWithTokenRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/events/$eventId/$token',
   beforeLoad: ({ params }) => {
-    setToken(params.eventId, params.token)
-    throw redirect({ to: '/events/$eventId', params: { eventId: params.eventId } })
+    if (getToken(params.eventId)) {
+      throw redirect({ to: '/events/$eventId', params: { eventId: params.eventId } })
+    }
+  },
+  component: () => {
+    const { eventId, token } = eventWithTokenRoute.useParams()
+    return <InviteResolver eventId={eventId} token={token} />
   },
 })
 

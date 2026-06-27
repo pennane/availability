@@ -157,6 +157,106 @@ paths:
               schema:
                 $ref: '#/components/schemas/MyParticipation'
 
+  /events/{eventId}/share-links:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: createShareLink
+      summary: Create a share/invite link (host only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShareLinkRequest'
+      responses:
+        '201':
+          description: Share link created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareLink'
+        '403':
+          description: Not the host
+    get:
+      operationId: listShareLinks
+      summary: List share links (host only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Share links
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [links]
+                properties:
+                  links:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ShareLink'
+        '403':
+          description: Not the host
+
+  /events/{eventId}/share-links/{linkId}:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: linkId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: deleteShareLink
+      summary: Revoke a share link (host only)
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Share link revoked
+        '403':
+          description: Not the host
+
+  /events/{eventId}/invite/{token}:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: validateShareToken
+      summary: Validate an invite token
+      responses:
+        '200':
+          description: Valid invite token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateShareTokenResponse'
+        '404':
+          description: Invalid token
+
   /events/{eventId}/dates:
     parameters:
       - name: eventId
@@ -432,7 +532,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventBase'
         - type: object
-          required: [role, visibility, suggestions, participants]
+          required: [role, visibility, suggestions, participants, shareLinks]
           properties:
             role:
               type: string
@@ -445,6 +545,10 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/ParticipantWithAvailability'
+            shareLinks:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShareLink'
 
     EventView:
       oneOf:
@@ -512,12 +616,14 @@ components:
 
     JoinEventRequest:
       type: object
-      required: [name]
+      required: [name, shareToken]
       properties:
         name:
           type: string
           minLength: 1
           maxLength: 100
+        shareToken:
+          type: string
 
     JoinEventResponse:
       type: object
@@ -572,3 +678,36 @@ components:
         date:
           type: string
           format: date
+
+    ShareLink:
+      type: object
+      required: [id, token, label, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        token:
+          type: string
+        label:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateShareLinkRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 200
+
+    ValidateShareTokenResponse:
+      type: object
+      required: [valid, title]
+      properties:
+        valid:
+          type: boolean
+        title:
+          type: string
+        description:
+          type: string

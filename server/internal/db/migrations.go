@@ -142,4 +142,15 @@ CREATE INDEX IF NOT EXISTS idx_availability_event_date_id ON availability(event_
 CREATE INDEX IF NOT EXISTS idx_availability_event_id ON availability(event_id);
 CREATE INDEX IF NOT EXISTS idx_event_dates_event_id ON event_dates(event_id);
 CREATE INDEX IF NOT EXISTS idx_participants_event_id ON participants(event_id);
+
+CREATE TABLE IF NOT EXISTS share_links (
+	id TEXT PRIMARY KEY,
+	event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+	token TEXT NOT NULL UNIQUE,
+	label TEXT NOT NULL DEFAULT '',
+	created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_share_links_event_id ON share_links(event_id);
+CREATE INDEX IF NOT EXISTS idx_share_links_token ON share_links(token);
 `

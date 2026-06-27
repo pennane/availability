@@ -40,3 +40,11 @@ type Event struct {
 	Dates          []EventDate
 	CreatedAt      time.Time
 }
+
+type ShareLink struct {
+	ID        string
+	EventID   string
+	Token     string
+	Label     string
+	CreatedAt time.Time
+}
