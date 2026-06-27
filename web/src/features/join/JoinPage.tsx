@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { TextField, Input, Label } from 'react-aria-components'
+import { FormattedMessage, useIntl } from 'react-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { api } from '@/shared/api/client'
@@ -12,6 +13,7 @@ type Props = {
 }
 
 export function JoinPage({ eventId, event, shareToken }: Props) {
+  const intl = useIntl()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [name, setName] = useState('')
@@ -30,7 +32,7 @@ export function JoinPage({ eventId, event, shareToken }: Props) {
 
     if (apiError || !data) {
       setSubmitting(false)
-      setError('Failed to join. The invite link may have been revoked.')
+      setError(intl.formatMessage({ id: 'join.error', defaultMessage: 'Failed to join. The invite link may have been revoked.' }))
       return
     }
 
@@ -45,8 +47,8 @@ export function JoinPage({ eventId, event, shareToken }: Props) {
       {event.description && <p className="text-gray-600 mb-6">{event.description}</p>}
 
       <TextField className="mb-4 text-left" value={name} onChange={setName}>
-        <Label className="block text-sm font-medium mb-1">Your name</Label>
-        <Input className="w-full border rounded px-3 py-2" placeholder="Enter your name" />
+        <Label className="block text-sm font-medium mb-1"><FormattedMessage id="join.yourName" defaultMessage="Your name" /></Label>
+        <Input className="w-full border rounded px-3 py-2" placeholder={intl.formatMessage({ id: 'join.namePlaceholder', defaultMessage: 'Enter your name' })} />
       </TextField>
 
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
@@ -56,7 +58,7 @@ export function JoinPage({ eventId, event, shareToken }: Props) {
         disabled={!name.trim() || submitting}
         onClick={join}
       >
-        {submitting ? 'Joining...' : 'Join'}
+        {submitting ? <FormattedMessage id="join.submitting" defaultMessage="Joining..." /> : <FormattedMessage id="join.submit" defaultMessage="Join" />}
       </button>
     </div>
   )

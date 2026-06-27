@@ -1,3 +1,4 @@
+import { FormattedMessage } from 'react-intl'
 import type { GridColumn, GridRow } from '@/features/grid/types'
 
 type ParticipantAvailability = {
@@ -23,7 +24,7 @@ function toFullDatetime(date: string, time: string): string {
 
 export function ResultsView({ columns, rows, participants }: Props) {
   if (participants.length === 0) {
-    return <p className="text-gray-500 text-sm">No responses yet.</p>
+    return <p className="text-gray-500 text-sm"><FormattedMessage id="event.noResponses" defaultMessage="No responses yet." /></p>
   }
 
   return (

@@ -9,6 +9,7 @@ import {
   CalendarHeading,
   Button,
 } from 'react-aria-components'
+import { FormattedMessage, useIntl } from 'react-intl'
 import { today, getLocalTimeZone, parseDate } from '@internationalized/date'
 import type { DateValue } from 'react-aria-components'
 
@@ -18,6 +19,7 @@ type Props = {
 }
 
 export function DatePicker({ selected, onChange }: Props) {
+  const intl = useIntl()
   const calendarDates = useMemo(
     () => selected.map(parseDate),
     [selected],
@@ -27,7 +29,7 @@ export function DatePicker({ selected, onChange }: Props) {
 
   return (
     <Calendar
-      aria-label="Select dates"
+      aria-label={intl.formatMessage({ id: 'create.fieldDates', defaultMessage: 'Dates' })}
       selectionMode="multiple"
       firstDayOfWeek="mon"
       value={calendarDates}
@@ -80,7 +82,7 @@ export function DatePicker({ selected, onChange }: Props) {
 
       {selected.length > 0 && (
         <p className="mt-2 text-xs text-gray-500">
-          {selected.length} day{selected.length !== 1 ? 's' : ''} selected
+          <FormattedMessage id="create.daysSelected" defaultMessage="{count, plural, one {# day} other {# days}} selected" values={{ count: selected.length }} />
         </p>
       )}
     </Calendar>

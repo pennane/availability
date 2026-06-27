@@ -1,8 +1,12 @@
-import { useMemo, useEffect, useCallback } from 'react'
+import { useMemo, useEffect, useCallback, useRef } from 'react'
+import { FormattedMessage, useIntl } from 'react-intl'
 import { GridCell } from './GridCell'
 import { useGridInteraction } from './useGridInteraction'
-import type { CellState, SlotEntry, GridColumn, CalendarDay } from './types'
-import { generateSlotRows, buildCalendarWeeks, monthLabel } from '@/shared/grid/slots'
+import type { CellState, SlotEntry, GridColumn, CalendarDay, CalendarWeek } from './types'
+import { generateSlotRows, buildCalendarWeeks, monthLabel, weekRangeLabel } from '@/shared/grid/slots'
+
+export { buildCalendarWeeks, weekRangeLabel }
+export type { CalendarWeek }
 
 type TimeSlotConfig = {
   durationMinutes: number
@@ -15,6 +19,8 @@ type Props = {
   timeSlotConfig: TimeSlotConfig
   entries: SlotEntry[]
   onChange: (entries: SlotEntry[]) => void
+  weekIndex: number
+  onWeekIndexChange: (index: number) => void
 }
 
 function toFullDatetime(date: string, time: string): string {
@@ -36,16 +42,183 @@ const DAY_STATE_LABELS: Record<DayCheckState, string> = {
   none: 'None selected',
 }
 
+const DAY_STATE_STYLES: Record<DayCheckState, { bg: string; text: string; sub: string }> = {
+  'all-available': { bg: 'bg-green-100', text: 'text-green-900', sub: 'text-green-700' },
+  'all-if-needed': { bg: 'bg-yellow-100', text: 'text-yellow-900', sub: 'text-yellow-700' },
+  mixed: { bg: 'bg-green-50', text: 'text-gray-800', sub: 'text-gray-500' },
+  none: { bg: 'bg-gray-100', text: 'text-gray-700', sub: 'text-gray-400' },
+}
+
+type GridRow = { slot: string; datetime: string }
+
+function WeekColumns({
+  week,
+  rows,
+  prevDayRef,
+  getState,
+  getDayState,
+  toggleDay,
+  onPointerDown,
+  onPointerEnter,
+}: {
+  week: CalendarWeek
+  rows: GridRow[]
+  prevDayRef: { current: CalendarDay | undefined }
+  getState: (eventDateId: string, slot: string) => CellState
+  getDayState: (eventDateId: string, date: string) => DayCheckState
+  toggleDay: (eventDateId: string, date: string, targetState: 'available' | 'if-needed') => void
+  onPointerDown: (eventDateId: string, slot: string, rowIndex: number, pointerType: string) => void
+  onPointerEnter: (eventDateId: string, slot: string, rowIndex: number) => void
+}) {
+  return (
+    <div className="flex flex-1 border-l-2 border-gray-300">
+      {week.days.map((day) => {
+        const ml = monthLabel(day, prevDayRef.current)
+        prevDayRef.current = day
+
+        if (!day.active) {
+          return (
+            <div key={day.date} className="min-w-10 flex-1">
+              <div className="h-12 border-b border-gray-200 text-center sticky top-0 bg-gray-50 z-10 flex flex-col justify-end pb-0.5">
+                {ml && (
+                  <span className="text-[9px] text-gray-300 font-medium leading-none">{ml}</span>
+                )}
+                <span className="text-[10px] text-gray-200 leading-none">{day.weekday}</span>
+                <span className="text-xs text-gray-200 font-medium leading-tight">{day.dayNum}</span>
+              </div>
+              {rows.map((row) => (
+                <div
+                  key={row.slot}
+                  className="h-6 border-b border-r border-gray-100 bg-gray-50"
+                />
+              ))}
+            </div>
+          )
+        }
+
+        const dayState = getDayState(day.eventDateId!, day.date)
+        const styles = DAY_STATE_STYLES[dayState]
+        return (
+          <div key={day.eventDateId} className="min-w-10 flex-1">
+            <div
+              role="checkbox"
+              aria-checked={dayAriaChecked(dayState)}
+              aria-label={`${day.weekday} ${day.dayNum} — ${DAY_STATE_LABELS[dayState]}`}
+              className={`h-12 border-b border-gray-300 text-center sticky top-0 ${styles.bg} z-10 flex flex-col justify-end pb-0.5 cursor-pointer hover:brightness-95 transition-all`}
+              onClick={() => toggleDay(day.eventDateId!, day.date, 'available')}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                toggleDay(day.eventDateId!, day.date, 'if-needed')
+              }}
+            >
+              {ml && (
+                <span className={`text-[9px] ${styles.sub} font-medium leading-none`}>{ml}</span>
+              )}
+              <span className={`text-[10px] ${styles.sub} leading-none`}>{day.weekday}</span>
+              <span className={`text-xs font-medium leading-tight ${styles.text}`}>{day.dayNum}</span>
+            </div>
+            {rows.map((row, rowIndex) => {
+              const fullSlot = toFullDatetime(day.date, row.datetime)
+              return (
+                <GridCell
+                  key={fullSlot}
+                  state={getState(day.eventDateId!, fullSlot)}
+                  rowIndex={rowIndex}
+                  onPointerDown={(ri, ptype) => onPointerDown(day.eventDateId!, fullSlot, ri, ptype)}
+                  onPointerEnter={(ri) => onPointerEnter(day.eventDateId!, fullSlot, ri)}
+                />
+              )
+            })}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+export function WeekMinimap({
+  weeks,
+  entries,
+  currentIndex,
+  onSelect,
+}: {
+  weeks: CalendarWeek[]
+  entries: SlotEntry[]
+  currentIndex: number
+  onSelect: (index: number) => void
+}) {
+  const weekScores = useMemo(() => {
+    const availableDates = new Set(
+      entries.filter((e) => e.state === 'available').map((e) => e.eventDateId),
+    )
+    const ifNeededDates = new Set(
+      entries.filter((e) => e.state === 'if-needed').map((e) => e.eventDateId),
+    )
+    return weeks.map((week) => {
+      const activeDays = week.days.filter((d) => d.active)
+      if (activeDays.length === 0) return { fill: 0, kind: 'none' as const }
+      let avail = 0
+      let ifNeeded = 0
+      for (const d of activeDays) {
+        if (availableDates.has(d.eventDateId!)) avail++
+        else if (ifNeededDates.has(d.eventDateId!)) ifNeeded++
+      }
+      const fill = (avail + ifNeeded) / activeDays.length
+      const kind = avail > 0 ? ('available' as const) : ifNeeded > 0 ? ('if-needed' as const) : ('none' as const)
+      return { fill, kind }
+    })
+  }, [weeks, entries])
+
+  return (
+    <div className="flex flex-wrap gap-1 justify-center py-2">
+      {weeks.map((week, i) => {
+        const { fill, kind } = weekScores[i]
+        const barColor =
+          fill === 0
+            ? 'bg-gray-200'
+            : kind === 'available'
+              ? fill < 1 ? 'bg-green-300' : 'bg-green-500'
+              : fill < 1 ? 'bg-yellow-200' : 'bg-yellow-400'
+        return (
+          <button
+            key={week.key}
+            onClick={() => onSelect(i)}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded text-[10px] ring-1 ring-inset transition-colors cursor-pointer ${
+              i === currentIndex
+                ? 'ring-blue-400 bg-blue-50 text-blue-700'
+                : 'ring-transparent text-gray-400 hover:bg-gray-100'
+            }`}
+            aria-label={`Week ${i + 1}`}
+            aria-current={i === currentIndex ? 'true' : undefined}
+          >
+            <span>{weekRangeLabel(week)}</span>
+            <span className={`block w-full h-1 rounded-full ${barColor}`} />
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function AvailabilityGrid({
   columns,
   timeSlotConfig,
   entries,
   onChange,
+  weekIndex,
+  onWeekIndexChange,
 }: Props) {
+  const intl = useIntl()
   const rows = useMemo(() => generateSlotRows(timeSlotConfig), [timeSlotConfig])
   const weeks = useMemo(() => buildCalendarWeeks(columns), [columns])
   const { getState, onPointerDown, onPointerEnter, onPointerUp, setSlotList, toggleDay } =
     useGridInteraction({ entries, onChange })
+  const desktopScrollRef = useRef<HTMLDivElement>(null)
+
+  const safeIndex = Math.min(weekIndex, Math.max(0, weeks.length - 1))
+  const currentWeek = weeks[safeIndex] as CalendarWeek | undefined
+  const hasPrev = safeIndex > 0
+  const hasNext = safeIndex < weeks.length - 1
 
   const getDayState = useCallback(
     (eventDateId: string, date: string): DayCheckState => {
@@ -64,103 +237,98 @@ export function AvailabilityGrid({
     setSlotList(rows.map((row) => row.datetime))
   }, [rows, setSlotList])
 
-  let prevDay: CalendarDay | undefined
+  const prevDayRef = { current: undefined as CalendarDay | undefined }
+
+  const sharedProps = {
+    rows,
+    prevDayRef,
+    getState,
+    getDayState,
+    toggleDay,
+    onPointerDown,
+    onPointerEnter,
+  }
 
   return (
     <div role="grid" aria-label="Availability grid" onPointerUp={onPointerUp} onPointerLeave={onPointerUp}>
-      <div className="overflow-auto max-h-[70vh] border border-gray-300 rounded">
-        <div className="flex">
-          {/* Time labels column */}
-          <div className="sticky left-0 z-20 bg-white flex-shrink-0 w-14">
-            <div className="h-12 border-b border-gray-300" />
-            {rows.map((row) => (
-              <div
-                key={row.slot}
-                className="h-6 text-[10px] text-gray-500 text-right pr-1.5 flex items-center justify-end border-b border-gray-100"
-              >
-                {row.slot}
-              </div>
+      {/* Desktop: all weeks */}
+      <div className="hidden sm:block">
+        <div ref={desktopScrollRef} className="overflow-auto max-h-[70vh] border border-gray-300 rounded">
+          <div className="flex">
+            <div className="sticky left-0 z-20 bg-white flex-shrink-0 w-10 sm:w-14">
+              <div className="h-12 border-b border-gray-300" />
+              {rows.map((row) => (
+                <div
+                  key={row.slot}
+                  className="h-6 text-[10px] text-gray-500 text-right pr-1.5 flex items-center justify-end border-b border-gray-100"
+                >
+                  {row.slot}
+                </div>
+              ))}
+            </div>
+            {(() => { prevDayRef.current = undefined; return null })()}
+            {weeks.map((week) => (
+              <WeekColumns key={week.key} week={week} {...sharedProps} />
             ))}
           </div>
-
-          {/* Week groups */}
-          {weeks.map((week) => (
-            <div key={week.key} className="flex border-l-2 border-gray-300">
-              {week.days.map((day) => {
-                const ml = monthLabel(day, prevDay)
-                prevDay = day
-
-                if (!day.active) {
-                  return (
-                    <div key={day.date} className="min-w-10 flex-1">
-                      <div className="h-12 border-b border-gray-300 text-center sticky top-0 bg-gray-50 z-10 flex flex-col justify-end pb-0.5">
-                        {ml && (
-                          <span className="text-[9px] text-gray-400 font-medium leading-none">{ml}</span>
-                        )}
-                        <span className="text-[10px] text-gray-300 leading-none">{day.weekday}</span>
-                        <span className="text-xs text-gray-300 font-medium leading-tight">{day.dayNum}</span>
-                      </div>
-                      {rows.map((row) => (
-                        <div
-                          key={row.slot}
-                          className="h-6 border-b border-r border-gray-100 bg-gray-50"
-                        />
-                      ))}
-                    </div>
-                  )
-                }
-
-                const dayState = getDayState(day.eventDateId!, day.date)
-                return (
-                  <div key={day.eventDateId} className="min-w-10 flex-1">
-                    <div
-                      role="checkbox"
-                      aria-checked={dayAriaChecked(dayState)}
-                      aria-label={`${day.weekday} ${day.dayNum} — ${DAY_STATE_LABELS[dayState]}`}
-                      className="h-12 border-b border-gray-300 text-center sticky top-0 bg-white z-10 flex flex-col justify-end pb-0.5 cursor-pointer hover:bg-blue-50 transition-colors"
-                      onClick={() => toggleDay(day.eventDateId!, day.date, 'available')}
-                      onContextMenu={(e) => {
-                        e.preventDefault()
-                        toggleDay(day.eventDateId!, day.date, 'if-needed')
-                      }}
-                    >
-                      {ml && (
-                        <span className="text-[9px] text-gray-400 font-medium leading-none">{ml}</span>
-                      )}
-                      <span className="text-[10px] text-gray-400 leading-none">{day.weekday}</span>
-                      <span className="text-xs font-medium leading-tight">{day.dayNum}</span>
-                    </div>
-                    {rows.map((row, rowIndex) => {
-                      const fullSlot = toFullDatetime(day.date, row.datetime)
-                      return (
-                        <GridCell
-                          key={fullSlot}
-                          state={getState(day.eventDateId!, fullSlot)}
-                          rowIndex={rowIndex}
-                          onPointerDown={(ri, ptype) => onPointerDown(day.eventDateId!, fullSlot, ri, ptype)}
-                          onPointerEnter={(ri) => onPointerEnter(day.eventDateId!, fullSlot, ri)}
-                        />
-                      )
-                    })}
-                  </div>
-                )
-              })}
-            </div>
-          ))}
         </div>
       </div>
 
-      {/* Legend — outside scroll container */}
-      <div className="px-3 py-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] text-gray-500">
+      {/* Mobile: single week */}
+      <div className="sm:hidden">
+        <div className="flex items-center justify-between mb-1">
+          <button
+            onClick={() => onWeekIndexChange(safeIndex - 1)}
+            disabled={!hasPrev}
+            className="p-1.5 text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30"
+            aria-label={intl.formatMessage({ id: 'grid.previousWeek', defaultMessage: 'Previous week' })}
+          >
+            &larr;
+          </button>
+          <span className="text-xs text-gray-500 font-medium">
+            <FormattedMessage id="grid.weekOf" defaultMessage="Week {current} / {total}" values={{ current: safeIndex + 1, total: weeks.length }} />
+          </span>
+          <button
+            onClick={() => onWeekIndexChange(safeIndex + 1)}
+            disabled={!hasNext}
+            className="p-1.5 text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30"
+            aria-label={intl.formatMessage({ id: 'grid.nextWeek', defaultMessage: 'Next week' })}
+          >
+            &rarr;
+          </button>
+        </div>
+        <div className="overflow-auto max-h-[70vh] border border-gray-300 rounded">
+          <div className="flex">
+            <div className="sticky left-0 z-20 bg-white flex-shrink-0 w-10 sm:w-14">
+              <div className="h-12 border-b border-gray-300" />
+              {rows.map((row) => (
+                <div
+                  key={row.slot}
+                  className="h-6 text-[10px] text-gray-500 text-right pr-1.5 flex items-center justify-end border-b border-gray-100"
+                >
+                  {row.slot}
+                </div>
+              ))}
+            </div>
+            {(() => { prevDayRef.current = undefined; return null })()}
+            {currentWeek && (
+              <WeekColumns week={currentWeek} {...sharedProps} />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="px-1 py-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-gray-400">
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 bg-green-400 rounded-sm" /> Available
+          <span className="inline-block w-2.5 h-2.5 bg-green-400 rounded-sm" /> <FormattedMessage id="grid.available" defaultMessage="Available" />
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 bg-yellow-300 rounded-sm" /> If needed
+          <span className="inline-block w-2.5 h-2.5 bg-yellow-300 rounded-sm" /> <FormattedMessage id="grid.ifNeeded" defaultMessage="If needed" />
         </span>
-        <span className="hidden sm:inline">· Click / right-click</span>
-        <span className="sm:hidden">· Tap to cycle</span>
-        <span>· Drag to paint</span>
+        <span className="hidden sm:inline">· <FormattedMessage id="grid.clickRightClick" defaultMessage="Click / right-click" /></span>
+        <span className="sm:hidden">· <FormattedMessage id="grid.tapToCycle" defaultMessage="Tap to cycle" /></span>
+        <span>· <FormattedMessage id="grid.dragToPaint" defaultMessage="Drag to paint" /></span>
       </div>
     </div>
   )

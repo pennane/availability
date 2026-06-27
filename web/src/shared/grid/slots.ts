@@ -82,6 +82,14 @@ export function buildCalendarWeeks(columns: GridColumn[]): CalendarWeek[] {
   return weeks
 }
 
+const shortDateFormatter = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' })
+
+export function weekRangeLabel(week: CalendarWeek): string {
+  const first = week.days[0]
+  const last = week.days[week.days.length - 1]
+  return shortDateFormatter.formatRange(toDate(first.date), toDate(last.date))
+}
+
 const monthFormatter = new Intl.DateTimeFormat(undefined, { month: 'short' })
 
 export function monthLabel(day: CalendarDay, prevDay: CalendarDay | undefined): string | null {

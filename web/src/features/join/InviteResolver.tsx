@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { FormattedMessage } from 'react-intl'
 import { api } from '@/shared/api/client'
 import { setToken } from '@/shared/api/token'
 import { JoinPage } from './JoinPage'
@@ -33,7 +34,7 @@ export function InviteResolver({ eventId, token }: Props) {
     }
   }, [data, isLoading, eventId, token, navigate])
 
-  if (isLoading) return <div className="p-4 text-center">Loading...</div>
+  if (isLoading) return <div className="p-4 text-center"><FormattedMessage id="common.loading" defaultMessage="Loading..." /></div>
 
   if (data) {
     return (
@@ -45,5 +46,5 @@ export function InviteResolver({ eventId, token }: Props) {
     )
   }
 
-  return <div className="p-4 text-center">Redirecting...</div>
+  return <div className="p-4 text-center"><FormattedMessage id="common.redirecting" defaultMessage="Redirecting..." /></div>
 }
