@@ -4,6 +4,7 @@ import { FormattedMessage, useIntl } from 'react-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { api } from '@/shared/api/client'
+import { Button } from '@/shared/ui/Button'
 import { setToken } from '@/shared/api/token'
 
 type Props = {
@@ -53,13 +54,13 @@ export function JoinPage({ eventId, event, shareToken }: Props) {
 
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
-      <button
-        className="w-full py-3 bg-blue-600 text-white rounded font-medium disabled:opacity-50"
+      <Button
+        size="lg"
         disabled={!name.trim() || submitting}
         onClick={join}
       >
         {submitting ? <FormattedMessage id="join.submitting" defaultMessage="Joining..." /> : <FormattedMessage id="join.submit" defaultMessage="Join" />}
-      </button>
+      </Button>
     </div>
   )
 }

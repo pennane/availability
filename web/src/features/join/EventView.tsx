@@ -6,11 +6,14 @@ import {
   useRef,
   type RefObject
 } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { api } from '@/shared/api/client'
+import { useEventMutation } from '@/shared/api/useEventMutation'
 import { useEventWebSocket } from '@/shared/api/ws'
 import { getToken, trackEvent } from '@/shared/api/token'
+import { useDebouncedCallback } from '@/shared/hooks/useDebouncedCallback'
 import { generateSlotRows } from '@/shared/grid/slots'
+import { Button } from '@/shared/ui/Button'
 import {
   AvailabilityGrid,
   WeekMinimap,
@@ -84,23 +87,19 @@ function GroupSummary({
   eventId: string
 }) {
   const intl = useIntl()
-  const queryClient = useQueryClient()
   const ranked = useMemo(
     () => bestDates(columns, participants),
     [columns, participants]
   )
   const total = participants.length
 
-  const removeMutation = useMutation({
-    mutationFn: async (participantId: string) => {
-      await api.DELETE('/events/{eventId}/participants/{participantId}', {
+  const removeMutation = useEventMutation(
+    eventId,
+    (participantId: string) =>
+      api.DELETE('/events/{eventId}/participants/{participantId}', {
         params: { path: { eventId, participantId } }
       })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['event', eventId] })
-    }
-  })
+  )
 
   const [confirmId, setConfirmId] = useState<string | null>(null)
 
@@ -235,31 +234,20 @@ function isAuthenticated(
 
 function ShareLinkManager({ eventId }: { eventId: string }) {
   const intl = useIntl()
-  const queryClient = useQueryClient()
 
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await api.POST('/events/{eventId}/share-links', {
-        params: { path: { eventId } },
-        body: {}
-      })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['event', eventId] })
-    }
+  const createMutation = useEventMutation(eventId, async () => {
+    const { error } = await api.POST('/events/{eventId}/share-links', {
+      params: { path: { eventId } },
+      body: {}
+    })
+    if (error) throw error
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: async (linkId: string) => {
-      await api.DELETE('/events/{eventId}/share-links/{linkId}', {
-        params: { path: { eventId, linkId } }
-      })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['event', eventId] })
-    }
-  })
+  const deleteMutation = useEventMutation(eventId, (linkId: string) =>
+    api.DELETE('/events/{eventId}/share-links/{linkId}', {
+      params: { path: { eventId, linkId } }
+    })
+  )
 
   const { data } = useQuery({
     queryKey: ['event', eventId],
@@ -281,16 +269,15 @@ function ShareLinkManager({ eventId }: { eventId: string }) {
 
   return (
     <div className="space-y-2">
-      <button
+      <Button
         onClick={() => createMutation.mutate()}
         disabled={createMutation.isPending}
-        className="text-sm px-3 py-1 bg-blue-600 text-white rounded disabled:opacity-50 cursor-pointer"
       >
         <FormattedMessage
           id="settings.createLink"
           defaultMessage="Create link"
         />
-      </button>
+      </Button>
       {shareLinks.length === 0 && (
         <p className="text-xs text-gray-400">
           <FormattedMessage
@@ -305,22 +292,24 @@ function ShareLinkManager({ eventId }: { eventId: string }) {
             {intl.formatDate(new Date(link.createdAt), { dateStyle: 'medium' })}{' '}
             {intl.formatTime(new Date(link.createdAt), { timeStyle: 'short' })}
           </span>
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => copyLink(link.token)}
-            className="text-xs px-2 py-0.5 bg-gray-100 hover:bg-gray-200 rounded border cursor-pointer"
           >
             <FormattedMessage id="settings.copyLink" defaultMessage="Copy" />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
             onClick={() => deleteMutation.mutate(link.id)}
             disabled={deleteMutation.isPending}
-            className="text-xs px-2 py-0.5 text-red-600 hover:bg-red-50 rounded border cursor-pointer"
           >
             <FormattedMessage
               id="settings.revokeLink"
               defaultMessage="Revoke"
             />
-          </button>
+          </Button>
         </div>
       ))}
     </div>
@@ -328,22 +317,19 @@ function ShareLinkManager({ eventId }: { eventId: string }) {
 }
 
 function DateSuggestion({ eventId }: { eventId: string }) {
-  const queryClient = useQueryClient()
   const [date, setDate] = useState('')
 
-  const suggestMutation = useMutation({
-    mutationFn: async () => {
+  const suggestMutation = useEventMutation(
+    eventId,
+    async () => {
       const { error } = await api.POST('/events/{eventId}/dates', {
         params: { path: { eventId } },
         body: { date }
       })
       if (error) throw error
     },
-    onSuccess: () => {
-      setDate('')
-      queryClient.invalidateQueries({ queryKey: ['event', eventId] })
-    }
-  })
+    { onSuccess: () => setDate('') }
+  )
 
   return (
     <div className="flex gap-2 items-end max-w-md">
@@ -361,13 +347,13 @@ function DateSuggestion({ eventId }: { eventId: string }) {
           className="block w-full text-sm px-2 py-1 border rounded mt-0.5 cursor-pointer"
         />
       </div>
-      <button
+      <Button
+        variant="secondary"
         onClick={() => suggestMutation.mutate()}
         disabled={!date || suggestMutation.isPending}
-        className="text-sm px-3 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded border disabled:opacity-50 cursor-pointer"
       >
         <FormattedMessage id="event.suggestButton" defaultMessage="Suggest" />
-      </button>
+      </Button>
     </div>
   )
 }
@@ -380,39 +366,26 @@ function HostSettings({
   event: AuthenticatedView & { role: 'host' }
 }) {
   const intl = useIntl()
-  const queryClient = useQueryClient()
   const [title, setTitle] = useState(event.title)
   const [description, setDescription] = useState(event.description ?? '')
   const [visibility, setVisibility] = useState(event.visibility.kind)
   const [suggestions, setSuggestions] = useState(event.suggestions.kind)
-  const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const updateMutation = useMutation({
-    mutationFn: async (body: components['schemas']['UpdateEventRequest']) => {
+  const updateMutation = useEventMutation(
+    eventId,
+    async (body: components['schemas']['UpdateEventRequest']) => {
       const { error } = await api.PATCH('/events/{eventId}', {
         params: { path: { eventId } },
         body
       })
       if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['event', eventId] })
     }
-  })
-
-  const debouncedSave = useCallback(
-    (body: components['schemas']['UpdateEventRequest']) => {
-      if (saveTimeout.current) clearTimeout(saveTimeout.current)
-      saveTimeout.current = setTimeout(() => updateMutation.mutate(body), 600)
-    },
-    [updateMutation]
   )
 
-  useEffect(
-    () => () => {
-      if (saveTimeout.current) clearTimeout(saveTimeout.current)
-    },
-    []
+  const debouncedSave = useDebouncedCallback(
+    (body: components['schemas']['UpdateEventRequest']) =>
+      updateMutation.mutate(body),
+    600
   )
 
   return (
@@ -808,7 +781,6 @@ function SpectatorView({
 export function EventView({ eventId }: { eventId: string }) {
   const intl = useIntl()
   useEventWebSocket(eventId)
-  const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
     queryKey: ['event', eventId],
@@ -836,7 +808,6 @@ export function EventView({ eventId }: { eventId: string }) {
   const howItWorksRef = useRef<HTMLDialogElement>(null)
   const [localEntries, setLocalEntries] = useState<SlotEntry[] | null>(null)
   const [weekIndex, setWeekIndex] = useState(0)
-  const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const entries: SlotEntry[] = useMemo(() => {
     if (localEntries !== null) return localEntries
@@ -849,9 +820,10 @@ export function EventView({ eventId }: { eventId: string }) {
     }))
   }, [localEntries, myData.data])
 
-  const saveMutation = useMutation({
-    mutationFn: async (newEntries: SlotEntry[]) => {
-      await api.PUT('/events/{eventId}/me/availability', {
+  const saveMutation = useEventMutation(
+    eventId,
+    (newEntries: SlotEntry[]) =>
+      api.PUT('/events/{eventId}/me/availability', {
         params: { path: { eventId } },
         body: {
           entries: newEntries.map((e) => ({
@@ -863,57 +835,39 @@ export function EventView({ eventId }: { eventId: string }) {
             slot: e.slot
           }))
         }
-      })
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['event', eventId] })
-      await queryClient.invalidateQueries({
-        queryKey: ['event', eventId, 'me']
-      })
-      setLocalEntries(null)
-    }
-  })
+      }),
+    { alsoInvalidateMe: true, onSuccess: () => setLocalEntries(null) }
+  )
 
-  const nameTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const nameMutation = useMutation({
-    mutationFn: async (name: string) => {
-      await api.PATCH('/events/{eventId}/me', {
+  const nameMutation = useEventMutation(
+    eventId,
+    (name: string) =>
+      api.PATCH('/events/{eventId}/me', {
         params: { path: { eventId } },
         body: { name }
-      })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['event', eventId] })
-      queryClient.invalidateQueries({ queryKey: ['event', eventId, 'me'] })
-    }
-  })
+      }),
+    { alsoInvalidateMe: true }
+  )
 
-  const handleNameChange = useCallback(
+  const handleNameChange = useDebouncedCallback(
     (name: string) => {
-      if (nameTimeout.current) clearTimeout(nameTimeout.current)
-      nameTimeout.current = setTimeout(() => {
-        if (name.trim()) nameMutation.mutate(name.trim())
-      }, 600)
+      if (name.trim()) nameMutation.mutate(name.trim())
     },
-    [nameMutation]
+    600
+  )
+
+  const debouncedSave = useDebouncedCallback(
+    (newEntries: SlotEntry[]) => saveMutation.mutate(newEntries),
+    800
   )
 
   const handleChange = useCallback(
     (newEntries: SlotEntry[]) => {
       setLocalEntries(newEntries)
-      if (saveTimeout.current) clearTimeout(saveTimeout.current)
-      saveTimeout.current = setTimeout(() => {
-        saveMutation.mutate(newEntries)
-      }, 800)
+      debouncedSave(newEntries)
     },
-    [saveMutation]
+    [debouncedSave]
   )
-
-  useEffect(() => {
-    return () => {
-      if (saveTimeout.current) clearTimeout(saveTimeout.current)
-    }
-  }, [])
 
   const columns: GridColumn[] = useMemo(() => {
     if (!data || !isAuthenticated(data)) return []

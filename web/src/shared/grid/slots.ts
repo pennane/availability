@@ -6,6 +6,10 @@ type TimeSlotConfig = {
   rangeEnd: string
 }
 
+export function toFullDatetime(date: string, time: string): string {
+  return `${date}T${time}`
+}
+
 export function generateSlotRows(config: TimeSlotConfig): GridRow[] {
   const rows: GridRow[] = []
   const [startH, startM] = config.rangeStart.split(':').map(Number)

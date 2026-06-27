@@ -1,7 +1,8 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { FormattedMessage, useIntl } from 'react-intl'
 import type { GridColumn, GridRow, CalendarDay, CalendarWeek } from '@/features/grid/types'
-import { buildCalendarWeeks, monthLabel } from '@/shared/grid/slots'
+import { buildCalendarWeeks, monthLabel, toFullDatetime } from '@/shared/grid/slots'
+import { TimeLabels } from '@/shared/grid/TimeLabels'
 
 type ParticipantAvailability = {
   id: string
@@ -15,10 +16,6 @@ type Props = {
   participants: ParticipantAvailability[]
   namesVisible: boolean
   weekIndex: number
-}
-
-function toFullDatetime(date: string, time: string): string {
-  return `${date}T${time}`
 }
 
 function heatColor(availableRatio: number, ifNeededRatio: number): string {
@@ -226,22 +223,6 @@ function HeatWeekColumns({
           </div>
         )
       })}
-    </div>
-  )
-}
-
-function TimeLabels({ rows }: { rows: GridRow[] }) {
-  return (
-    <div className="sticky left-0 z-20 bg-grid-surface flex-shrink-0 w-10 sm:w-14">
-      <div className="h-12 border-b border-grid-border-strong" />
-      {rows.map((row) => (
-        <div
-          key={row.slot}
-          className="h-6 text-[10px] text-grid-text-muted text-right pr-1.5 flex items-center justify-end border-b border-grid-border"
-        >
-          {row.slot}
-        </div>
-      ))}
     </div>
   )
 }

@@ -3,7 +3,8 @@ import { FormattedMessage, useIntl } from 'react-intl'
 import { GridCell } from './GridCell'
 import { useGridInteraction } from './useGridInteraction'
 import type { CellState, SlotEntry, GridColumn, CalendarDay, CalendarWeek } from './types'
-import { generateSlotRows, buildCalendarWeeks, monthLabel, weekRangeLabel } from '@/shared/grid/slots'
+import { generateSlotRows, buildCalendarWeeks, monthLabel, weekRangeLabel, toFullDatetime } from '@/shared/grid/slots'
+import { TimeLabels } from '@/shared/grid/TimeLabels'
 
 export { buildCalendarWeeks, weekRangeLabel }
 export type { CalendarWeek }
@@ -21,10 +22,6 @@ type Props = {
   onChange: (entries: SlotEntry[]) => void
   weekIndex: number
   onWeekIndexChange: (index: number) => void
-}
-
-function toFullDatetime(date: string, time: string): string {
-  return `${date}T${time}`
 }
 
 type DayCheckState = 'all-available' | 'all-if-needed' | 'mixed' | 'none'
@@ -275,17 +272,7 @@ export function AvailabilityGrid({
       <div className="hidden sm:block">
         <div ref={desktopScrollRef} className="overflow-auto max-h-[70vh] border border-grid-border-strong rounded">
           <div className="flex">
-            <div className="sticky left-0 z-20 bg-grid-surface flex-shrink-0 w-10 sm:w-14">
-              <div className="h-12 border-b border-grid-border-strong" />
-              {rows.map((row) => (
-                <div
-                  key={row.slot}
-                  className="h-6 text-[10px] text-grid-text-muted text-right pr-1.5 flex items-center justify-end border-b border-grid-border"
-                >
-                  {row.slot}
-                </div>
-              ))}
-            </div>
+            <TimeLabels rows={rows} />
             {(() => { prevDayRef.current = undefined; return null })()}
             {weeks.map((week) => (
               <WeekColumns key={week.key} week={week} {...sharedProps} />
@@ -319,17 +306,7 @@ export function AvailabilityGrid({
         </div>
         <div className="overflow-auto max-h-[70vh] border border-grid-border-strong rounded">
           <div className="flex">
-            <div className="sticky left-0 z-20 bg-grid-surface flex-shrink-0 w-10 sm:w-14">
-              <div className="h-12 border-b border-grid-border-strong" />
-              {rows.map((row) => (
-                <div
-                  key={row.slot}
-                  className="h-6 text-[10px] text-grid-text-muted text-right pr-1.5 flex items-center justify-end border-b border-grid-border"
-                >
-                  {row.slot}
-                </div>
-              ))}
-            </div>
+            <TimeLabels rows={rows} />
             {(() => { prevDayRef.current = undefined; return null })()}
             {currentWeek && (
               <WeekColumns week={currentWeek} {...sharedProps} />

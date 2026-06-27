@@ -4,6 +4,7 @@ import { TextField, Input, Label } from 'react-aria-components'
 import { FormattedMessage, useIntl } from 'react-intl'
 import { api } from '@/shared/api/client'
 import { setToken, getKnownEvents } from '@/shared/api/token'
+import { Button } from '@/shared/ui/Button'
 import { LocaleSwitcher } from '@/shared/i18n/LocaleSwitcher'
 import { ThemeSwitcher } from '@/shared/theme/ThemeSwitcher'
 import { DatePicker } from './DatePicker'
@@ -160,13 +161,13 @@ export function CreateEventPage() {
         <DatePicker selected={dates} onChange={setDates} />
       </div>
 
-      <button
-        className="w-full py-3 bg-blue-600 text-white rounded font-medium disabled:opacity-50"
+      <Button
+        size="lg"
         disabled={!title || dates.length === 0 || submitting}
         onClick={submit}
       >
         {submitting ? <FormattedMessage id="create.submitting" defaultMessage="Creating..." /> : <FormattedMessage id="create.submit" defaultMessage="Create Event" />}
-      </button>
+      </Button>
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { FormattedMessage } from 'react-intl'
 import type { GridColumn, GridRow } from '@/features/grid/types'
+import { toFullDatetime } from '@/shared/grid/slots'
 
 type ParticipantAvailability = {
   id: string
@@ -16,10 +17,6 @@ type Props = {
 const KIND_CLASSES: Record<string, string> = {
   available: 'bg-green-400',
   'if-needed': 'bg-yellow-300',
-}
-
-function toFullDatetime(date: string, time: string): string {
-  return `${date}T${time}`
 }
 
 export function ResultsView({ columns, rows, participants }: Props) {
