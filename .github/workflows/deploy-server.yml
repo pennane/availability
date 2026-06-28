@@ -28,5 +28,6 @@ jobs:
           echo "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           echo "$VPS_HOST_KEY" >> ~/.ssh/known_hosts
+          ssh root@"$VPS_HOST" 'systemctl stop availability'
           scp server/availability-server root@"$VPS_HOST":/opt/availability/availability-server
-          ssh root@"$VPS_HOST" 'systemctl restart availability'
+          ssh root@"$VPS_HOST" 'systemctl start availability'
