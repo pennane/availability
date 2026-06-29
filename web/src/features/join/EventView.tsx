@@ -233,14 +233,19 @@ function isAuthenticated(
 
 function ShareLinkManager({ eventId }: { eventId: string }) {
   const intl = useIntl()
+  const [individualName, setIndividualName] = useState('')
+  const [showIndividualInput, setShowIndividualInput] = useState(false)
 
-  const createMutation = useEventMutation(eventId, async () => {
-    const { error } = await api.POST('/events/{eventId}/share-links', {
-      params: { path: { eventId } },
-      body: {}
-    })
-    if (error) throw error
-  })
+  const createMutation = useEventMutation(
+    eventId,
+    async (body: components['schemas']['CreateShareLinkRequest']) => {
+      const { error } = await api.POST('/events/{eventId}/share-links', {
+        params: { path: { eventId } },
+        body
+      })
+      if (error) throw error
+    }
+  )
 
   const deleteMutation = useEventMutation(eventId, (linkId: string) =>
     api.DELETE('/events/{eventId}/share-links/{linkId}', {
@@ -261,22 +266,96 @@ function ShareLinkManager({ eventId }: { eventId: string }) {
 
   const shareLinks = data?.role === 'host' ? data.shareLinks : []
 
-  const copyLink = (token: string) => {
+  const [justCopiedId, setJustCopiedId] = useState<string | null>(null)
+  const copyLink = (id: string, token: string) => {
     const url = `${window.location.origin}/events/${eventId}/${token}`
     navigator.clipboard.writeText(url)
+    setJustCopiedId(id)
+    setTimeout(() => setJustCopiedId(null), 2000)
+  }
+
+  const createGlobal = () => {
+    createMutation.mutate({ kind: 'global' })
+  }
+
+  const createIndividual = () => {
+    if (!individualName.trim()) return
+    createMutation.mutate(
+      { kind: 'individual', name: individualName.trim() },
+      {
+        onSuccess: () => {
+          setIndividualName('')
+          setShowIndividualInput(false)
+        }
+      }
+    )
   }
 
   return (
     <div className="space-y-2">
-      <Button
-        onClick={() => createMutation.mutate()}
-        disabled={createMutation.isPending}
-      >
-        <FormattedMessage
-          id="settings.createLink"
-          defaultMessage="Create link"
-        />
-      </Button>
+      <div className="flex gap-2 flex-wrap">
+        <Button
+          onClick={createGlobal}
+          disabled={createMutation.isPending}
+        >
+          <FormattedMessage
+            id="settings.createGlobalLink"
+            defaultMessage="Global link"
+          />
+        </Button>
+        {!showIndividualInput ? (
+          <Button
+            variant="secondary"
+            onClick={() => setShowIndividualInput(true)}
+          >
+            <FormattedMessage
+              id="settings.createIndividualLink"
+              defaultMessage="Individual link"
+            />
+          </Button>
+        ) : (
+          <span className="flex gap-1 items-center">
+            <input
+              type="text"
+              value={individualName}
+              onChange={(e) => setIndividualName(e.target.value)}
+              placeholder={intl.formatMessage({
+                id: 'settings.individualNamePlaceholder',
+                defaultMessage: 'Name'
+              })}
+              className="px-2 py-1 text-sm border rounded w-32"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') createIndividual()
+                if (e.key === 'Escape') {
+                  setShowIndividualInput(false)
+                  setIndividualName('')
+                }
+              }}
+              autoFocus
+            />
+            <Button
+              size="sm"
+              onClick={createIndividual}
+              disabled={!individualName.trim() || createMutation.isPending}
+            >
+              <FormattedMessage
+                id="settings.createButton"
+                defaultMessage="Create"
+              />
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setShowIndividualInput(false)
+                setIndividualName('')
+              }}
+            >
+              &times;
+            </Button>
+          </span>
+        )}
+      </div>
       {shareLinks.length === 0 && (
         <p className="text-xs text-gray-400">
           <FormattedMessage
@@ -291,12 +370,28 @@ function ShareLinkManager({ eventId }: { eventId: string }) {
             {intl.formatDate(new Date(link.createdAt), { dateStyle: 'medium' })}{' '}
             {intl.formatTime(new Date(link.createdAt), { timeStyle: 'short' })}
           </span>
+          {link.kind === 'individual' && (
+            <span className="text-xs font-medium text-gray-600">
+              {link.name}
+            </span>
+          )}
+          <span className="text-xs text-gray-300">
+            {link.kind === 'individual' ? (
+              <FormattedMessage id="settings.individual" defaultMessage="individual" />
+            ) : (
+              <FormattedMessage id="settings.global" defaultMessage="global" />
+            )}
+          </span>
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => copyLink(link.token)}
+            onClick={() => copyLink(link.id, link.token)}
           >
-            <FormattedMessage id="settings.copyLink" defaultMessage="Copy" />
+            {justCopiedId === link.id ? (
+              <FormattedMessage id="event.copyLinkCopied" defaultMessage="Copied!" />
+            ) : (
+              <FormattedMessage id="settings.copyLink" defaultMessage="Copy" />
+            )}
           </Button>
           <Button
             variant="danger"
