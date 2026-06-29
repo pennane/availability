@@ -12,6 +12,7 @@ type EventMessage = {
   name?: string
   eventDateId?: string
   date?: string
+  nonce?: string
 }
 
 const WS_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8080').replace(
@@ -19,7 +20,10 @@ const WS_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8080').replac
   'ws',
 )
 
-export function useEventWebSocket(eventId: string | undefined) {
+export function useEventWebSocket(
+  eventId: string | undefined,
+  nonceRef?: { current: string | null }
+) {
   const queryClient = useQueryClient()
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimeout = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -40,6 +44,9 @@ export function useEventWebSocket(eventId: string | undefined) {
       const msg: EventMessage = JSON.parse(event.data as string)
       switch (msg.kind) {
         case 'availability-updated':
+          if (nonceRef?.current && msg.nonce === nonceRef.current) break
+          queryClient.invalidateQueries({ queryKey: ['event', eventId] })
+          break
         case 'participant-joined':
         case 'settings-changed':
         case 'date-suggested':
@@ -55,7 +62,7 @@ export function useEventWebSocket(eventId: string | undefined) {
     }
 
     wsRef.current = ws
-  }, [eventId, queryClient])
+  }, [eventId, queryClient, nonceRef])
 
   useEffect(() => {
     connect()
