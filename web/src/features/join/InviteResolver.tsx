@@ -6,15 +6,11 @@ import { api } from '@/shared/api/client'
 import { setToken, setIndividualLink } from '@/shared/api/token'
 import { JoinPage } from './JoinPage'
 
-type Props = {
-  eventId: string
-  token: string
-}
-
-export function InviteResolver({ eventId, token }: Props) {
+export function InviteResolver({ eventId, token }: { eventId: string; token: string }) {
   const navigate = useNavigate()
+  const goToEvent = () => navigate({ to: '/events/$eventId', params: { eventId } })
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['invite', eventId, token],
     queryFn: async () => {
       const { data, error } = await api.GET('/events/{eventId}/invite/{token}', {
@@ -30,29 +26,18 @@ export function InviteResolver({ eventId, token }: Props) {
     if (isLoading) return
     if (!data) {
       setToken(eventId, token)
-      navigate({ to: '/events/$eventId', params: { eventId } })
-      return
-    }
-    if (data.kind === 'individual' && data.participantToken) {
+      goToEvent()
+    } else if (data.kind === 'individual' && data.participantToken) {
       setToken(eventId, data.participantToken)
       setIndividualLink(eventId)
-      navigate({ to: '/events/$eventId', params: { eventId } })
+      goToEvent()
     }
   }, [data, isLoading, eventId, token, navigate])
 
   if (isLoading) return <div className="p-4 text-center"><FormattedMessage id="common.loading" defaultMessage="Loading..." /></div>
 
-  if (data) {
-    if (data.kind === 'individual') {
-      return <div className="p-4 text-center"><FormattedMessage id="common.redirecting" defaultMessage="Redirecting..." /></div>
-    }
-    return (
-      <JoinPage
-        eventId={eventId}
-        event={{ title: data.title, description: data.description }}
-        shareToken={token}
-      />
-    )
+  if (data?.kind === 'global') {
+    return <JoinPage eventId={eventId} event={{ title: data.title, description: data.description }} shareToken={token} />
   }
 
   return <div className="p-4 text-center"><FormattedMessage id="common.redirecting" defaultMessage="Redirecting..." /></div>

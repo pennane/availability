@@ -231,87 +231,45 @@ function isAuthenticated(
   return data.role === 'participant' || data.role === 'host'
 }
 
-function ShareLinkManager({ eventId }: { eventId: string }) {
+function ShareLinkManager({ eventId, shareLinks }: { eventId: string; shareLinks: components['schemas']['HostEventView']['shareLinks'] }) {
   const intl = useIntl()
   const [individualName, setIndividualName] = useState('')
   const [showIndividualInput, setShowIndividualInput] = useState(false)
+  const [justCopiedId, setJustCopiedId] = useState<string | null>(null)
 
-  const createMutation = useEventMutation(
-    eventId,
-    async (body: components['schemas']['CreateShareLinkRequest']) => {
-      const { error } = await api.POST('/events/{eventId}/share-links', {
-        params: { path: { eventId } },
-        body
-      })
-      if (error) throw error
-    }
-  )
-
-  const deleteMutation = useEventMutation(eventId, (linkId: string) =>
-    api.DELETE('/events/{eventId}/share-links/{linkId}', {
-      params: { path: { eventId, linkId } }
-    })
-  )
-
-  const { data } = useQuery({
-    queryKey: ['event', eventId],
-    queryFn: async () => {
-      const { data, error } = await api.GET('/events/{eventId}', {
-        params: { path: { eventId } }
-      })
-      if (error) throw error
-      return data
-    }
+  const createMutation = useEventMutation(eventId, async (body: components['schemas']['CreateShareLinkRequest']) => {
+    const { error } = await api.POST('/events/{eventId}/share-links', { params: { path: { eventId } }, body })
+    if (error) throw error
   })
 
-  const shareLinks = data?.role === 'host' ? data.shareLinks : []
+  const deleteMutation = useEventMutation(eventId, (linkId: string) =>
+    api.DELETE('/events/{eventId}/share-links/{linkId}', { params: { path: { eventId, linkId } } })
+  )
 
-  const [justCopiedId, setJustCopiedId] = useState<string | null>(null)
   const copyLink = (id: string, token: string) => {
-    const url = `${window.location.origin}/events/${eventId}/${token}`
-    navigator.clipboard.writeText(url)
+    navigator.clipboard.writeText(`${window.location.origin}/events/${eventId}/${token}`)
     setJustCopiedId(id)
     setTimeout(() => setJustCopiedId(null), 2000)
   }
 
-  const createGlobal = () => {
-    createMutation.mutate({ kind: 'global' })
-  }
-
   const createIndividual = () => {
     if (!individualName.trim()) return
-    createMutation.mutate(
-      { kind: 'individual', name: individualName.trim() },
-      {
-        onSuccess: () => {
-          setIndividualName('')
-          setShowIndividualInput(false)
-        }
-      }
-    )
+    createMutation.mutate({ kind: 'individual', name: individualName.trim() }, {
+      onSuccess: () => { setIndividualName(''); setShowIndividualInput(false) }
+    })
   }
+
+  const dismissIndividual = () => { setShowIndividualInput(false); setIndividualName('') }
 
   return (
     <div className="space-y-2">
       <div className="flex gap-2 flex-wrap">
-        <Button
-          onClick={createGlobal}
-          disabled={createMutation.isPending}
-        >
-          <FormattedMessage
-            id="settings.createGlobalLink"
-            defaultMessage="Global link"
-          />
+        <Button onClick={() => createMutation.mutate({ kind: 'global' })} disabled={createMutation.isPending}>
+          <FormattedMessage id="settings.createGlobalLink" defaultMessage="Global link" />
         </Button>
         {!showIndividualInput ? (
-          <Button
-            variant="secondary"
-            onClick={() => setShowIndividualInput(true)}
-          >
-            <FormattedMessage
-              id="settings.createIndividualLink"
-              defaultMessage="Individual link"
-            />
+          <Button variant="secondary" onClick={() => setShowIndividualInput(true)}>
+            <FormattedMessage id="settings.createIndividualLink" defaultMessage="Individual link" />
           </Button>
         ) : (
           <span className="flex gap-1 items-center">
@@ -319,49 +277,21 @@ function ShareLinkManager({ eventId }: { eventId: string }) {
               type="text"
               value={individualName}
               onChange={(e) => setIndividualName(e.target.value)}
-              placeholder={intl.formatMessage({
-                id: 'settings.individualNamePlaceholder',
-                defaultMessage: 'Name'
-              })}
+              placeholder={intl.formatMessage({ id: 'settings.individualNamePlaceholder', defaultMessage: 'Name' })}
               className="px-2 py-1 text-sm border rounded w-32"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') createIndividual()
-                if (e.key === 'Escape') {
-                  setShowIndividualInput(false)
-                  setIndividualName('')
-                }
-              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') createIndividual(); if (e.key === 'Escape') dismissIndividual() }}
               autoFocus
             />
-            <Button
-              size="sm"
-              onClick={createIndividual}
-              disabled={!individualName.trim() || createMutation.isPending}
-            >
-              <FormattedMessage
-                id="settings.createButton"
-                defaultMessage="Create"
-              />
+            <Button size="sm" onClick={createIndividual} disabled={!individualName.trim() || createMutation.isPending}>
+              <FormattedMessage id="settings.createButton" defaultMessage="Create" />
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setShowIndividualInput(false)
-                setIndividualName('')
-              }}
-            >
-              &times;
-            </Button>
+            <Button variant="secondary" size="sm" onClick={dismissIndividual}>&times;</Button>
           </span>
         )}
       </div>
       {shareLinks.length === 0 && (
         <p className="text-xs text-gray-400">
-          <FormattedMessage
-            id="settings.noLinks"
-            defaultMessage="No invite links yet. Create one to let people join."
-          />
+          <FormattedMessage id="settings.noLinks" defaultMessage="No invite links yet. Create one to let people join." />
         </p>
       )}
       {shareLinks.map((link) => (
@@ -370,39 +300,17 @@ function ShareLinkManager({ eventId }: { eventId: string }) {
             {intl.formatDate(new Date(link.createdAt), { dateStyle: 'medium' })}{' '}
             {intl.formatTime(new Date(link.createdAt), { timeStyle: 'short' })}
           </span>
-          {link.kind === 'individual' && (
-            <span className="text-xs font-medium text-gray-600">
-              {link.name}
-            </span>
-          )}
+          {link.kind === 'individual' && <span className="text-xs font-medium text-gray-600">{link.name}</span>}
           <span className="text-xs text-gray-300">
-            {link.kind === 'individual' ? (
-              <FormattedMessage id="settings.individual" defaultMessage="individual" />
-            ) : (
-              <FormattedMessage id="settings.global" defaultMessage="global" />
-            )}
+            <FormattedMessage id={`settings.${link.kind}`} defaultMessage={link.kind} />
           </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => copyLink(link.id, link.token)}
-          >
-            {justCopiedId === link.id ? (
-              <FormattedMessage id="event.copyLinkCopied" defaultMessage="Copied!" />
-            ) : (
-              <FormattedMessage id="settings.copyLink" defaultMessage="Copy" />
-            )}
+          <Button variant="secondary" size="sm" onClick={() => copyLink(link.id, link.token)}>
+            {justCopiedId === link.id
+              ? <FormattedMessage id="event.copyLinkCopied" defaultMessage="Copied!" />
+              : <FormattedMessage id="settings.copyLink" defaultMessage="Copy" />}
           </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => deleteMutation.mutate(link.id)}
-            disabled={deleteMutation.isPending}
-          >
-            <FormattedMessage
-              id="settings.revokeLink"
-              defaultMessage="Revoke"
-            />
+          <Button variant="danger" size="sm" onClick={() => deleteMutation.mutate(link.id)} disabled={deleteMutation.isPending}>
+            <FormattedMessage id="settings.revokeLink" defaultMessage="Revoke" />
           </Button>
         </div>
       ))}
@@ -593,7 +501,7 @@ function HostSettings({
               defaultMessage="Invite Links"
             />
           </span>
-          <ShareLinkManager eventId={eventId} />
+          <ShareLinkManager eventId={eventId} shareLinks={event.shareLinks} />
         </div>
       </div>
     </details>
@@ -610,33 +518,22 @@ function CopyMyLink({ eventId }: { eventId: string }) {
   if (!token) return null
 
   const copy = () => {
-    navigator.clipboard.writeText(
-      `${window.location.origin}/events/${eventId}/${token}`
-    )
+    navigator.clipboard.writeText(`${window.location.origin}/events/${eventId}/${token}`)
     localStorage.setItem(storageKey, '1')
     setHasCopiedBefore(true)
     setJustCopied(true)
     setTimeout(() => setJustCopied(false), 2000)
   }
 
+  const copyLabel = justCopied
+    ? <FormattedMessage id="event.copyLinkCopied" defaultMessage="Copied!" />
+    : <FormattedMessage id="event.copyLink" defaultMessage="Copy your personal link" />
+
   if (hasCopiedBefore) {
     return (
       <p className="text-xs text-gray-400">
-        <button
-          onClick={copy}
-          className="text-blue-500 hover:text-blue-700 hover:underline cursor-pointer"
-        >
-          {justCopied ? (
-            <FormattedMessage
-              id="event.copyLinkCopied"
-              defaultMessage="Copied!"
-            />
-          ) : (
-            <FormattedMessage
-              id="event.copyLink"
-              defaultMessage="Copy your personal link"
-            />
-          )}
+        <button onClick={copy} className="text-blue-500 hover:text-blue-700 hover:underline cursor-pointer">
+          {copyLabel}
         </button>
       </p>
     )
@@ -645,23 +542,10 @@ function CopyMyLink({ eventId }: { eventId: string }) {
   return (
     <div className="border border-amber-300 bg-amber-50 rounded-md px-3 py-2 flex items-center justify-between gap-3">
       <p className="text-xs text-amber-800">
-        <FormattedMessage
-          id="event.copyLinkPrompt"
-          defaultMessage="Save personal link to return and edit your availability on other browsers."
-        />
+        <FormattedMessage id="event.copyLinkPrompt" defaultMessage="Save personal link to return and edit your availability on other browsers." />
       </p>
-      <button
-        onClick={copy}
-        className="text-xs font-medium text-amber-800 bg-amber-200 hover:bg-amber-300 px-3 py-1 rounded cursor-pointer flex-shrink-0 transition-colors"
-      >
-        {justCopied ? (
-          <FormattedMessage
-            id="event.copyLinkCopied"
-            defaultMessage="Copied!"
-          />
-        ) : (
-          <FormattedMessage id="event.copyLink" defaultMessage="Copy link" />
-        )}
+      <button onClick={copy} className="text-xs font-medium text-amber-800 bg-amber-200 hover:bg-amber-300 px-3 py-1 rounded cursor-pointer flex-shrink-0 transition-colors">
+        {copyLabel}
       </button>
     </div>
   )
