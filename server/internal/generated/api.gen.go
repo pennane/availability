@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
@@ -90,6 +91,11 @@ type CreateEventResponse struct {
 	HostToken string             `json:"hostToken"`
 }
 
+// CreateShareLinkRequest defines model for CreateShareLinkRequest.
+type CreateShareLinkRequest struct {
+	Label *string `json:"label,omitempty"`
+}
+
 // EventBase defines model for EventBase.
 type EventBase struct {
 	Dates          []EventDate        `json:"dates"`
@@ -119,6 +125,7 @@ type HostEventView struct {
 	Id             openapi_types.UUID            `json:"id"`
 	Participants   []ParticipantWithAvailability `json:"participants"`
 	Role           string                        `json:"role"`
+	ShareLinks     []ShareLink                   `json:"shareLinks"`
 	Suggestions    SuggestionPolicy              `json:"suggestions"`
 	TimeSlotConfig TimeSlotConfig                `json:"timeSlotConfig"`
 
@@ -147,7 +154,8 @@ type IfNeededEntry struct {
 
 // JoinEventRequest defines model for JoinEventRequest.
 type JoinEventRequest struct {
-	Name string `json:"name"`
+	Name       string `json:"name"`
+	ShareToken string `json:"shareToken"`
 }
 
 // JoinEventResponse defines model for JoinEventResponse.
@@ -222,6 +230,15 @@ type PublicEventView struct {
 // ReplaceAvailabilityRequest defines model for ReplaceAvailabilityRequest.
 type ReplaceAvailabilityRequest struct {
 	Entries []AvailabilityEntry `json:"entries"`
+	Nonce   *string             `json:"nonce,omitempty"`
+}
+
+// ShareLink defines model for ShareLink.
+type ShareLink struct {
+	CreatedAt time.Time          `json:"createdAt"`
+	Id        openapi_types.UUID `json:"id"`
+	Label     string             `json:"label"`
+	Token     string             `json:"token"`
 }
 
 // SlotDuration defines model for SlotDuration.
@@ -262,6 +279,13 @@ type UpdateParticipationRequest struct {
 	Note *string `json:"note,omitempty"`
 }
 
+// ValidateShareTokenResponse defines model for ValidateShareTokenResponse.
+type ValidateShareTokenResponse struct {
+	Description *string `json:"description,omitempty"`
+	Title       string  `json:"title"`
+	Valid       bool    `json:"valid"`
+}
+
 // VisibilityPolicy defines model for VisibilityPolicy.
 type VisibilityPolicy struct {
 	union json.RawMessage
@@ -287,6 +311,9 @@ type JoinEventJSONRequestBody = JoinEventRequest
 
 // ReplaceAvailabilityJSONRequestBody defines body for ReplaceAvailability for application/json ContentType.
 type ReplaceAvailabilityJSONRequestBody = ReplaceAvailabilityRequest
+
+// CreateShareLinkJSONRequestBody defines body for CreateShareLink for application/json ContentType.
+type CreateShareLinkJSONRequestBody = CreateShareLinkRequest
 
 // AsAvailableEntry returns the union data inside the AvailabilityEntry as a AvailableEntry
 func (t AvailabilityEntry) AsAvailableEntry() (AvailableEntry, error) {
@@ -777,6 +804,9 @@ type ServerInterface interface {
 	// Suggest a date (if suggestion policy is open)
 	// (POST /events/{eventId}/dates)
 	SuggestDate(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID)
+	// Validate an invite token
+	// (GET /events/{eventId}/invite/{token})
+	ValidateShareToken(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID, token string)
 	// Get own participation state
 	// (GET /events/{eventId}/me)
 	GetMyParticipation(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID)
@@ -789,6 +819,18 @@ type ServerInterface interface {
 	// Replace full availability set
 	// (PUT /events/{eventId}/me/availability)
 	ReplaceAvailability(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID)
+	// Remove a participant (host only)
+	// (DELETE /events/{eventId}/participants/{participantId})
+	RemoveParticipant(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID, participantId openapi_types.UUID)
+	// List share links (host only)
+	// (GET /events/{eventId}/share-links)
+	ListShareLinks(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID)
+	// Create a share/invite link (host only)
+	// (POST /events/{eventId}/share-links)
+	CreateShareLink(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID)
+	// Revoke a share link (host only)
+	// (DELETE /events/{eventId}/share-links/{linkId})
+	DeleteShareLink(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID, linkId openapi_types.UUID)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -819,6 +861,12 @@ func (_ Unimplemented) SuggestDate(w http.ResponseWriter, r *http.Request, event
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Validate an invite token
+// (GET /events/{eventId}/invite/{token})
+func (_ Unimplemented) ValidateShareToken(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID, token string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Get own participation state
 // (GET /events/{eventId}/me)
 func (_ Unimplemented) GetMyParticipation(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID) {
@@ -840,6 +888,30 @@ func (_ Unimplemented) JoinEvent(w http.ResponseWriter, r *http.Request, eventId
 // Replace full availability set
 // (PUT /events/{eventId}/me/availability)
 func (_ Unimplemented) ReplaceAvailability(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove a participant (host only)
+// (DELETE /events/{eventId}/participants/{participantId})
+func (_ Unimplemented) RemoveParticipant(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID, participantId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List share links (host only)
+// (GET /events/{eventId}/share-links)
+func (_ Unimplemented) ListShareLinks(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a share/invite link (host only)
+// (POST /events/{eventId}/share-links)
+func (_ Unimplemented) CreateShareLink(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Revoke a share link (host only)
+// (DELETE /events/{eventId}/share-links/{linkId})
+func (_ Unimplemented) DeleteShareLink(w http.ResponseWriter, r *http.Request, eventId openapi_types.UUID, linkId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -962,6 +1034,41 @@ func (siw *ServerInterfaceWrapper) SuggestDate(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// ValidateShareToken operation middleware
+func (siw *ServerInterfaceWrapper) ValidateShareToken(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "eventId" -------------
+	var eventId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventId", chi.URLParam(r, "eventId"), &eventId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "token" -------------
+	var token string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ValidateShareToken(w, r, eventId, token)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMyParticipation operation middleware
 func (siw *ServerInterfaceWrapper) GetMyParticipation(w http.ResponseWriter, r *http.Request) {
 
@@ -1075,6 +1182,152 @@ func (siw *ServerInterfaceWrapper) ReplaceAvailability(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ReplaceAvailability(w, r, eventId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveParticipant operation middleware
+func (siw *ServerInterfaceWrapper) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "eventId" -------------
+	var eventId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventId", chi.URLParam(r, "eventId"), &eventId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "participantId" -------------
+	var participantId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "participantId", chi.URLParam(r, "participantId"), &participantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "participantId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveParticipant(w, r, eventId, participantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListShareLinks operation middleware
+func (siw *ServerInterfaceWrapper) ListShareLinks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "eventId" -------------
+	var eventId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventId", chi.URLParam(r, "eventId"), &eventId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListShareLinks(w, r, eventId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateShareLink operation middleware
+func (siw *ServerInterfaceWrapper) CreateShareLink(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "eventId" -------------
+	var eventId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventId", chi.URLParam(r, "eventId"), &eventId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateShareLink(w, r, eventId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteShareLink operation middleware
+func (siw *ServerInterfaceWrapper) DeleteShareLink(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "eventId" -------------
+	var eventId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventId", chi.URLParam(r, "eventId"), &eventId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "linkId" -------------
+	var linkId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "linkId", chi.URLParam(r, "linkId"), &linkId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "linkId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteShareLink(w, r, eventId, linkId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1210,6 +1463,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/events/{eventId}/dates", wrapper.SuggestDate)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/events/{eventId}/invite/{token}", wrapper.ValidateShareToken)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/events/{eventId}/me", wrapper.GetMyParticipation)
 	})
 	r.Group(func(r chi.Router) {
@@ -1221,6 +1477,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/events/{eventId}/me/availability", wrapper.ReplaceAvailability)
 	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/events/{eventId}/participants/{participantId}", wrapper.RemoveParticipant)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/events/{eventId}/share-links", wrapper.ListShareLinks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/events/{eventId}/share-links", wrapper.CreateShareLink)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/events/{eventId}/share-links/{linkId}", wrapper.DeleteShareLink)
+	})
 
 	return r
 }
@@ -1230,37 +1498,43 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

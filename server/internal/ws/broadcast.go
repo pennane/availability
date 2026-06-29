@@ -11,6 +11,7 @@ type EventMessage struct {
 	Name          string `json:"name,omitempty"`
 	EventDateID   string `json:"eventDateId,omitempty"`
 	Date          string `json:"date,omitempty"`
+	Nonce         string `json:"nonce,omitempty"`
 }
 
 type Client struct {

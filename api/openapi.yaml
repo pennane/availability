@@ -695,6 +695,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AvailabilityEntry'
+        nonce:
+          type: string
 
     SuggestDateRequest:
       type: object
