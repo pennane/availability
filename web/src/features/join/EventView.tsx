@@ -507,7 +507,11 @@ function HostSettings({
 }
 
 function CopyMyLink({ eventId }: { eventId: string }) {
-  const [copied, setCopied] = useState(false)
+  const storageKey = `link-copied:${eventId}`
+  const [hasCopiedBefore, setHasCopiedBefore] = useState(
+    () => localStorage.getItem(storageKey) === '1'
+  )
+  const [justCopied, setJustCopied] = useState(false)
   const token = getToken(eventId)
   if (!token) return null
 
@@ -515,16 +519,31 @@ function CopyMyLink({ eventId }: { eventId: string }) {
     navigator.clipboard.writeText(
       `${window.location.origin}/events/${eventId}/${token}`
     )
-    setCopied(true)
+    localStorage.setItem(storageKey, '1')
+    setHasCopiedBefore(true)
+    setJustCopied(true)
+    setTimeout(() => setJustCopied(false), 2000)
   }
 
-  if (copied) {
+  if (hasCopiedBefore) {
     return (
-      <p className="text-xs text-green-600">
-        <FormattedMessage
-          id="event.copyLinkCopied"
-          defaultMessage="Link copied!"
-        />
+      <p className="text-xs text-gray-400">
+        <button
+          onClick={copy}
+          className="text-blue-500 hover:text-blue-700 hover:underline cursor-pointer"
+        >
+          {justCopied ? (
+            <FormattedMessage
+              id="event.copyLinkCopied"
+              defaultMessage="Copied!"
+            />
+          ) : (
+            <FormattedMessage
+              id="event.copyLink"
+              defaultMessage="Copy your personal link"
+            />
+          )}
+        </button>
       </p>
     )
   }
@@ -534,17 +553,21 @@ function CopyMyLink({ eventId }: { eventId: string }) {
       <p className="text-xs text-amber-800">
         <FormattedMessage
           id="event.copyLinkPrompt"
-          defaultMessage="Save your personal link — it's the only way to return and edit your availability."
+          defaultMessage="Save personal link to return and edit your availability on other browsers."
         />
       </p>
       <button
         onClick={copy}
         className="text-xs font-medium text-amber-800 bg-amber-200 hover:bg-amber-300 px-3 py-1 rounded cursor-pointer flex-shrink-0 transition-colors"
       >
-        <FormattedMessage
-          id="event.copyLink"
-          defaultMessage="Copy link"
-        />
+        {justCopied ? (
+          <FormattedMessage
+            id="event.copyLinkCopied"
+            defaultMessage="Copied!"
+          />
+        ) : (
+          <FormattedMessage id="event.copyLink" defaultMessage="Copy link" />
+        )}
       </button>
     </div>
   )
@@ -730,7 +753,9 @@ function SpectatorView({
         <div>
           <h1 className="text-xl font-bold">{data.title}</h1>
           {data.description && (
-            <p className="text-gray-600 text-sm mt-0.5 whitespace-pre-line">{data.description}</p>
+            <p className="text-gray-600 text-sm mt-0.5 whitespace-pre-line leading-normal">
+              {data.description}
+            </p>
           )}
           <p className="text-xs text-gray-400 mt-1">
             {columns.length > 0 && (
@@ -953,7 +978,7 @@ export function EventView({ eventId }: { eventId: string }) {
           <div>
             <h1 className="text-xl font-bold">{authedData.title}</h1>
             {authedData.description && (
-              <p className="text-gray-600 text-sm mt-0.5 whitespace-pre-line">
+              <p className="text-gray-600 text-sm mt-0.5 whitespace-pre-line leading-normal">
                 {authedData.description}
               </p>
             )}
@@ -1061,8 +1086,6 @@ export function EventView({ eventId }: { eventId: string }) {
               )}
             </>
           )}
-        </div>
-        <div className="mt-3">
           <CopyMyLink eventId={eventId} />
         </div>
       </section>
