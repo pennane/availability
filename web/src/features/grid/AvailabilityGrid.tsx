@@ -20,6 +20,7 @@ type Props = {
   timeSlotConfig: TimeSlotConfig
   entries: SlotEntry[]
   onChange: (entries: SlotEntry[]) => void
+  onFlush?: () => void
   weekIndex: number
   onWeekIndexChange: (index: number) => void
 }
@@ -57,7 +58,7 @@ function WeekColumns({
   getDayState,
   toggleDay,
   onPointerDown,
-  onPointerEnter,
+  onFlush,
 }: {
   week: CalendarWeek
   rows: GridRow[]
@@ -66,8 +67,8 @@ function WeekColumns({
   getState: (eventDateId: string, slot: string) => CellState
   getDayState: (eventDateId: string, date: string) => DayCheckState
   toggleDay: (eventDateId: string, date: string, targetState: 'available' | 'if-needed') => void
-  onPointerDown: (eventDateId: string, slot: string, rowIndex: number, pointerType: string) => void
-  onPointerEnter: (eventDateId: string, slot: string, rowIndex: number) => void
+  onPointerDown: (eventDateId: string, slot: string, rowIndex: number, pointerType: string, clientX: number, clientY: number) => void
+  onFlush?: () => void
 }) {
   return (
     <div className="flex flex-1 border-l-2 border-grid-border-strong">
@@ -104,10 +105,11 @@ function WeekColumns({
               aria-checked={dayAriaChecked(dayState)}
               aria-label={`${day.weekday} ${day.dayNum} — ${DAY_STATE_LABELS[dayState]}`}
               className={`h-12 border-b border-grid-border-strong text-center sticky top-0 ${styles.bg} z-10 flex flex-col justify-end pb-0.5 cursor-pointer hover:brightness-95 transition-all`}
-              onClick={() => toggleDay(day.eventDateId!, day.date, 'available')}
+              onClick={() => { toggleDay(day.eventDateId!, day.date, 'available'); onFlush?.() }}
               onContextMenu={(e) => {
                 e.preventDefault()
                 toggleDay(day.eventDateId!, day.date, 'if-needed')
+                onFlush?.()
               }}
             >
               {ml && (
@@ -122,9 +124,10 @@ function WeekColumns({
                 <GridCell
                   key={fullSlot}
                   state={getState(day.eventDateId!, fullSlot)}
+                  eventDateId={day.eventDateId!}
+                  slot={fullSlot}
                   rowIndex={rowIndex}
-                  onPointerDown={(ri, ptype) => onPointerDown(day.eventDateId!, fullSlot, ri, ptype)}
-                  onPointerEnter={(ri) => onPointerEnter(day.eventDateId!, fullSlot, ri)}
+                  onPointerDown={(ri, ptype, cx, cy) => onPointerDown(day.eventDateId!, fullSlot, ri, ptype, cx, cy)}
                 />
               )
             })}
@@ -170,15 +173,19 @@ export function WeekMinimap({
   }, [weeks, entries])
 
   return (
-    <div className="flex flex-wrap gap-1 justify-center py-2">
+    <div className="flex flex-wrap gap-1 py-2">
       {weeks.map((week, i) => {
         const { fill, kind } = weekScores[i]
         const barColor =
           fill === 0
             ? 'bg-gray-200'
             : kind === 'available'
-              ? fill < 1 ? 'bg-green-300' : 'bg-green-500'
-              : fill < 1 ? 'bg-yellow-200' : 'bg-yellow-400'
+              ? fill < 1
+                ? 'bg-green-300'
+                : 'bg-green-500'
+              : fill < 1
+                ? 'bg-yellow-200'
+                : 'bg-yellow-400'
         return (
           <button
             key={week.key}
@@ -205,13 +212,14 @@ export function AvailabilityGrid({
   timeSlotConfig,
   entries,
   onChange,
+  onFlush,
   weekIndex,
   onWeekIndexChange,
 }: Props) {
   const intl = useIntl()
   const rows = useMemo(() => generateSlotRows(timeSlotConfig), [timeSlotConfig])
   const weeks = useMemo(() => buildCalendarWeeks(columns, intl.locale), [columns, intl.locale])
-  const { getState, onPointerDown, onPointerEnter, onPointerUp, setSlotList, toggleDay } =
+  const { getState, onPointerDown, onPointerMove, onPointerUp, setSlotList, toggleDay } =
     useGridInteraction({ entries, onChange })
   const desktopScrollRef = useRef<HTMLDivElement>(null)
 
@@ -253,6 +261,11 @@ export function AvailabilityGrid({
     setSlotList(rows.map((row) => row.datetime))
   }, [rows, setSlotList])
 
+  const handlePointerEnd = useCallback(() => {
+    const wasDragging = onPointerUp()
+    if (wasDragging) onFlush?.()
+  }, [onPointerUp, onFlush])
+
   const prevDayRef = { current: undefined as CalendarDay | undefined }
 
   const sharedProps = {
@@ -263,11 +276,17 @@ export function AvailabilityGrid({
     getDayState,
     toggleDay,
     onPointerDown,
-    onPointerEnter,
+    onFlush,
   }
 
   return (
-    <div role="grid" aria-label="Availability grid" onPointerUp={onPointerUp} onPointerLeave={onPointerUp}>
+    <div
+      role="grid"
+      aria-label="Availability grid"
+      onPointerMove={onPointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerLeave={handlePointerEnd}
+    >
       {/* Desktop: all weeks */}
       <div className="hidden sm:block">
         <div ref={desktopScrollRef} className="overflow-auto max-h-[70vh] border border-grid-border-strong rounded">
