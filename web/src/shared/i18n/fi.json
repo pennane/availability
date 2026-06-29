@@ -35,7 +35,7 @@
   "event.spectatorNotice": "Osallistuaksesi pyydä kutsulinkki tapahtuman järjestäjältä.",
   "event.groupAvailability": "Ryhmän saatavuus",
 
-  "event.respondents": "Vastaajat ({count})",
+  "event.respondents": "Vastanneet ({count})",
   "event.anonymous": "Anonyymi",
   "event.removeParticipant": "Poista {name}",
   "event.removeConfirm": "Poista",

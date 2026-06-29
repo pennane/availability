@@ -831,8 +831,10 @@ export function EventView({ eventId }: { eventId: string }) {
   })
 
   useEffect(() => {
-    if (data?.title) document.title = `${data.title} — Availability`
-    return () => { document.title = 'Availability' }
+    if (data?.title) document.title = `${data.title}`
+    return () => {
+      document.title = 'saatavuus.pennanen.dev'
+    }
   }, [data?.title])
 
   const myData = useQuery({
@@ -1078,18 +1080,15 @@ export function EventView({ eventId }: { eventId: string }) {
                   })}
                 />
               </span>
-              {(saveMutation.isPending || nameMutation.isPending) && (
-                <span className="text-gray-400">
-                  <FormattedMessage
-                    id="common.saving"
-                    defaultMessage="Saving..."
-                  />
-                </span>
-              )}
             </>
           )}
           <CopyMyLink eventId={eventId} />
         </div>
+        <span
+          className={`text-sm text-gray-400 ${saveMutation.isPending || nameMutation.isPending ? 'visible' : 'invisible'}`}
+        >
+          <FormattedMessage id="common.saving" defaultMessage="Saving..." />
+        </span>
       </section>
 
       {/* Group section */}
