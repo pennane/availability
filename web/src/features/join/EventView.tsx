@@ -516,32 +516,37 @@ function CopyMyLink({ eventId }: { eventId: string }) {
       `${window.location.origin}/events/${eventId}/${token}`
     )
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  }
+
+  if (copied) {
+    return (
+      <p className="text-xs text-green-600">
+        <FormattedMessage
+          id="event.copyLinkCopied"
+          defaultMessage="Link copied!"
+        />
+      </p>
+    )
   }
 
   return (
-    <p className="text-xs text-gray-400">
+    <div className="border border-amber-300 bg-amber-50 rounded-md px-3 py-2 flex items-center justify-between gap-3">
+      <p className="text-xs text-amber-800">
+        <FormattedMessage
+          id="event.copyLinkPrompt"
+          defaultMessage="Save your personal link — it's the only way to return and edit your availability."
+        />
+      </p>
       <button
         onClick={copy}
-        className="text-blue-500 hover:text-blue-700 hover:underline cursor-pointer"
+        className="text-xs font-medium text-amber-800 bg-amber-200 hover:bg-amber-300 px-3 py-1 rounded cursor-pointer flex-shrink-0 transition-colors"
       >
-        {copied ? (
-          <FormattedMessage
-            id="event.copyLinkCopied"
-            defaultMessage="Copied!"
-          />
-        ) : (
-          <FormattedMessage
-            id="event.copyLink"
-            defaultMessage="Copy your personal link"
-          />
-        )}
-      </button>{' '}
-      <FormattedMessage
-        id="event.copyLinkSuffix"
-        defaultMessage="to edit your availability later"
-      />
-    </p>
+        <FormattedMessage
+          id="event.copyLink"
+          defaultMessage="Copy link"
+        />
+      </button>
+    </div>
   )
 }
 
@@ -721,41 +726,49 @@ function SpectatorView({
 
   return (
     <div className="max-w-5xl mx-auto p-4">
-      <div className="mb-4">
-        <h1 className="text-xl font-bold">{data.title}</h1>
-        {data.description && (
-          <p className="text-gray-600 text-sm mt-0.5 whitespace-pre-line">{data.description}</p>
-        )}
-        <p className="text-xs text-gray-400 mt-1">
-          {columns.length > 0 && (
-            <>
-              {intl.formatDate(new Date(columns[0].date + 'T12:00:00'), {
-                month: 'short',
-                day: 'numeric'
-              })}
-              {columns.length > 1 && (
-                <>
-                  {' '}
-                  –{' '}
-                  {intl.formatDate(
-                    new Date(columns[columns.length - 1].date + 'T12:00:00'),
-                    { month: 'short', day: 'numeric' }
-                  )}
-                </>
-              )}
-              {' · '}
-            </>
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h1 className="text-xl font-bold">{data.title}</h1>
+          {data.description && (
+            <p className="text-gray-600 text-sm mt-0.5 whitespace-pre-line">{data.description}</p>
           )}
-          {data.timezone}
-        </p>
+          <p className="text-xs text-gray-400 mt-1">
+            {columns.length > 0 && (
+              <>
+                {intl.formatDate(new Date(columns[0].date + 'T12:00:00'), {
+                  month: 'short',
+                  day: 'numeric'
+                })}
+                {columns.length > 1 && (
+                  <>
+                    {' '}
+                    –{' '}
+                    {intl.formatDate(
+                      new Date(columns[columns.length - 1].date + 'T12:00:00'),
+                      { month: 'short', day: 'numeric' }
+                    )}
+                  </>
+                )}
+                {' · '}
+              </>
+            )}
+            {data.timezone}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <ThemeSwitcher />
+          <LocaleSwitcher />
+        </div>
       </div>
 
-      <p className="text-sm text-gray-500 mb-4">
-        <FormattedMessage
-          id="event.spectatorNotice"
-          defaultMessage="You are viewing this event as a spectator. To participate, you need an invite link from the host."
-        />
-      </p>
+      <div className="border border-amber-300 bg-amber-50 rounded-md px-4 py-3 mb-6">
+        <p className="text-sm font-medium text-amber-800">
+          <FormattedMessage
+            id="event.spectatorNotice"
+            defaultMessage="To participate, ask the event host for an invite link."
+          />
+        </p>
+      </div>
 
       {columns.length > 0 && (
         <section>
@@ -793,6 +806,11 @@ export function EventView({ eventId }: { eventId: string }) {
       return data
     }
   })
+
+  useEffect(() => {
+    if (data?.title) document.title = `${data.title} — Availability`
+    return () => { document.title = 'Availability' }
+  }, [data?.title])
 
   const myData = useQuery({
     queryKey: ['event', eventId, 'me'],
@@ -1019,6 +1037,7 @@ export function EventView({ eventId }: { eventId: string }) {
                 />
                 <input
                   type="text"
+                  name="participant-name"
                   defaultValue={myData.data.name}
                   onChange={(e) => handleNameChange(e.target.value)}
                   className="px-1.5 py-0.5 border rounded w-28 text-gray-600"
@@ -1040,9 +1059,10 @@ export function EventView({ eventId }: { eventId: string }) {
                   />
                 </span>
               )}
-              <span className="text-gray-300">·</span>
             </>
           )}
+        </div>
+        <div className="mt-3">
           <CopyMyLink eventId={eventId} />
         </div>
       </section>

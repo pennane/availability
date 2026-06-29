@@ -28,11 +28,11 @@
   "event.yourAvailability": "Merkitse saatavuutesi",
   "event.respondingAs": "Vastaat nimellä",
   "event.yourNamePlaceholder": "Nimesi",
-  "event.copyLink": "Kopioi henkilökohtainen linkki",
-  "event.copyLinkCopied": "Kopioitu!",
-  "event.copyLinkSuffix": "muokataksesi saatavuuttasi myöhemmin",
+  "event.copyLink": "Kopioi linkki",
+  "event.copyLinkCopied": "Linkki kopioitu!",
+  "event.copyLinkPrompt": "Tallenna henkilökohtainen linkkisi — se on ainoa tapa palata muokkaamaan saatavuuttasi.",
   "event.notFound": "Tapahtumaa ei löytynyt",
-  "event.spectatorNotice": "Katselet tätä tapahtumaa. Osallistuaksesi tarvitset kutsulinkin järjestäjältä.",
+  "event.spectatorNotice": "Osallistuaksesi pyydä kutsulinkki tapahtuman järjestäjältä.",
   "event.groupAvailability": "Ryhmän saatavuus",
 
   "event.respondents": "Vastaajat ({count})",
@@ -42,7 +42,7 @@
   "event.bestDates": "Parhaat päivät",
   "event.suggestDate": "Ehdota vaihtoehtoista päivää",
   "event.suggestButton": "Ehdota",
-  "event.noResponses": "Ei vastauksia vielä.",
+  "event.noResponses": "Ei vastauksia",
 
   "settings.title": "Tapahtuma-asetukset",
   "settings.fieldTitle": "Otsikko",
@@ -57,7 +57,7 @@
   "settings.createLink": "Luo linkki",
   "settings.noLinks": "Ei kutsulinkkejä. Luo linkki, jotta ihmiset voivat liittyä.",
   "settings.copyLink": "Kopioi",
-  "settings.revokeLink": "Peru",
+  "settings.revokeLink": "Poista",
 
   "howItWorks.title": "Näin se toimii",
   "howItWorks.markAvailability": "Merkitse saatavuutesi",
@@ -94,5 +94,5 @@
   "join.namePlaceholder": "Syötä nimesi",
   "join.submit": "Syötä saatavuutesi",
   "join.submitting": "Liitytään...",
-  "join.error": "Liittyminen epäonnistui. Kutsulinkki on ehkä peruttu."
+  "join.error": "Liittyminen epäonnistui. Kutsulinkki on ehkä poistettu."
 }

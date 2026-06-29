@@ -45,8 +45,10 @@ export function App() {
     <ThemeProvider>
       <LocaleProvider>
         <QueryClientProvider client={queryClient}>
-          <div className="flex flex-col min-h-screen">
-            <RouterProvider router={router} />
+          <div className="flex flex-col min-h-screen min-w-0">
+            <div className="flex-1 min-w-0">
+              <RouterProvider router={router} />
+            </div>
             <Footer />
           </div>
         </QueryClientProvider>
