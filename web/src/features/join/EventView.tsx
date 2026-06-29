@@ -332,28 +332,28 @@ function DateSuggestion({ eventId }: { eventId: string }) {
   )
 
   return (
-    <div className="flex gap-2 items-end">
-      <div>
-        <label className="text-xs text-gray-500">
-          <FormattedMessage
-            id="event.suggestDate"
-            defaultMessage="Suggest an alternative date"
-          />
-        </label>
+    <div>
+      <label className="text-xs text-gray-500 block mb-1">
+        <FormattedMessage
+          id="event.suggestDate"
+          defaultMessage="Suggest an alternative date"
+        />
+      </label>
+      <div className="flex gap-2 items-stretch">
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="block w-full text-sm px-2 py-1 border rounded mt-0.5 cursor-pointer"
+          className="text-sm px-2 py-1 border rounded cursor-pointer"
         />
+        <Button
+          variant="secondary"
+          onClick={() => suggestMutation.mutate()}
+          disabled={!date || suggestMutation.isPending}
+        >
+          <FormattedMessage id="event.suggestButton" defaultMessage="Suggest" />
+        </Button>
       </div>
-      <Button
-        variant="secondary"
-        onClick={() => suggestMutation.mutate()}
-        disabled={!date || suggestMutation.isPending}
-      >
-        <FormattedMessage id="event.suggestButton" defaultMessage="Suggest" />
-      </Button>
     </div>
   )
 }
