@@ -337,7 +337,7 @@ function DateSuggestion({ eventId }: { eventId: string }) {
         <label className="text-xs text-gray-500">
           <FormattedMessage
             id="event.suggestDate"
-            defaultMessage="Suggest alternative date"
+            defaultMessage="Suggest an alternative date"
           />
         </label>
         <input
@@ -780,7 +780,8 @@ function SpectatorView({
 
 export function EventView({ eventId }: { eventId: string }) {
   const intl = useIntl()
-  useEventWebSocket(eventId)
+  const nonceRef = useRef<string | null>(null)
+  useEventWebSocket(eventId, nonceRef)
 
   const { data, isLoading } = useQuery({
     queryKey: ['event', eventId],
@@ -808,6 +809,7 @@ export function EventView({ eventId }: { eventId: string }) {
   const howItWorksRef = useRef<HTMLDialogElement>(null)
   const [localEntries, setLocalEntries] = useState<SlotEntry[] | null>(null)
   const [weekIndex, setWeekIndex] = useState(0)
+  const generationRef = useRef(0)
 
   const entries: SlotEntry[] = useMemo(() => {
     if (localEntries !== null) return localEntries
@@ -822,10 +824,13 @@ export function EventView({ eventId }: { eventId: string }) {
 
   const saveMutation = useEventMutation(
     eventId,
-    (newEntries: SlotEntry[]) =>
-      api.PUT('/events/{eventId}/me/availability', {
+    (newEntries: SlotEntry[]) => {
+      const nonce = crypto.randomUUID()
+      nonceRef.current = nonce
+      return api.PUT('/events/{eventId}/me/availability', {
         params: { path: { eventId } },
         body: {
+          nonce,
           entries: newEntries.map((e) => ({
             kind:
               e.state === 'available'
@@ -835,8 +840,9 @@ export function EventView({ eventId }: { eventId: string }) {
             slot: e.slot
           }))
         }
-      }),
-    { alsoInvalidateMe: true, onSuccess: () => setLocalEntries(null) }
+      })
+    },
+    { alsoInvalidateMe: true }
   )
 
   const nameMutation = useEventMutation(
@@ -857,17 +863,31 @@ export function EventView({ eventId }: { eventId: string }) {
   )
 
   const { call: debouncedSave, flush: flushSave } = useDebouncedCallback(
-    (newEntries: SlotEntry[]) => saveMutation.mutate(newEntries),
+    (newEntries: SlotEntry[]) => {
+      const gen = generationRef.current
+      saveMutation.mutate(newEntries, {
+        onSuccess: () => {
+          if (gen === generationRef.current) {
+            setLocalEntries(null)
+          }
+        }
+      })
+    },
     300
   )
 
   const handleChange = useCallback(
     (newEntries: SlotEntry[]) => {
+      generationRef.current++
       setLocalEntries(newEntries)
       debouncedSave(newEntries)
     },
     [debouncedSave]
   )
+
+  const handleFlush = useCallback(() => {
+    flushSave()
+  }, [flushSave])
 
   const columns: GridColumn[] = useMemo(() => {
     if (!data || !isAuthenticated(data)) return []
@@ -986,6 +1006,7 @@ export function EventView({ eventId }: { eventId: string }) {
           timeSlotConfig={authedData.timeSlotConfig}
           entries={entries}
           onChange={handleChange}
+          onFlush={handleFlush}
           weekIndex={weekIndex}
           onWeekIndexChange={setWeekIndex}
         />
