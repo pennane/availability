@@ -808,7 +808,6 @@ export function EventView({ eventId }: { eventId: string }) {
   const howItWorksRef = useRef<HTMLDialogElement>(null)
   const [localEntries, setLocalEntries] = useState<SlotEntry[] | null>(null)
   const [weekIndex, setWeekIndex] = useState(0)
-  const [heatmapWeekIndex, setHeatmapWeekIndex] = useState(0)
 
   const entries: SlotEntry[] = useMemo(() => {
     if (localEntries !== null) return localEntries
@@ -1026,22 +1025,12 @@ export function EventView({ eventId }: { eventId: string }) {
 
       {/* Group section */}
       <section>
-        <div className="flex gap-x-4 items-end">
-          <h2 className="text-sm font-semibold text-gray-700 mb-2">
-            <FormattedMessage
-              id="event.groupAvailability"
-              defaultMessage="Group"
-            />
-          </h2>
-          {weeks.length > 1 && (
-            <WeekMinimap
-              weeks={weeks}
-              entries={entries}
-              currentIndex={heatmapWeekIndex}
-              onSelect={setHeatmapWeekIndex}
-            />
-          )}
-        </div>
+        <h2 className="text-sm font-semibold text-gray-700 mb-2">
+          <FormattedMessage
+            id="event.groupAvailability"
+            defaultMessage="Group"
+          />
+        </h2>
         <GroupSummary
           columns={columns}
           participants={authedData.participants}
@@ -1055,8 +1044,7 @@ export function EventView({ eventId }: { eventId: string }) {
           rows={rows}
           participants={authedData.participants}
           namesVisible={namesVisible}
-          weekIndex={heatmapWeekIndex}
-          onWeekIndexChange={setHeatmapWeekIndex}
+          weekIndex={weekIndex}
         />
       </section>
     </div>
