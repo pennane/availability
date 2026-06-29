@@ -25,7 +25,7 @@
   "create.submitting": "Luodaan...",
   "create.daysSelected": "{count, plural, one {# päivä} other {# päivää}} valittu",
 
-  "event.yourAvailability": "Saatavuutesi",
+  "event.yourAvailability": "Merkitse saatavuutesi",
   "event.respondingAs": "Vastaat nimellä",
   "event.yourNamePlaceholder": "Nimesi",
   "event.copyLink": "Kopioi henkilökohtainen linkki",
@@ -40,7 +40,7 @@
   "event.removeParticipant": "Poista {name}",
   "event.removeConfirm": "Poista",
   "event.bestDates": "Parhaat päivät",
-  "event.suggestDate": "Ehdota vaihtoehtoista aikaa",
+  "event.suggestDate": "Ehdota vaihtoehtoista päivää",
   "event.suggestButton": "Ehdota",
   "event.noResponses": "Ei vastauksia vielä.",
 

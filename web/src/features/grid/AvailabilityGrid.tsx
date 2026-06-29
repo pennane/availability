@@ -175,6 +175,7 @@ export function WeekMinimap({
   return (
     <div className="flex flex-wrap gap-1 py-2">
       {weeks.map((week, i) => {
+        if (!week.days.some((d) => d.active)) return null
         const { fill, kind } = weekScores[i]
         const barColor =
           fill === 0

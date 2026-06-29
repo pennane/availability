@@ -1,8 +1,9 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { FormattedMessage, useIntl } from 'react-intl'
 import type { GridColumn, GridRow, CalendarDay, CalendarWeek } from '@/features/grid/types'
-import { buildCalendarWeeks, monthLabel, toFullDatetime } from '@/shared/grid/slots'
-import { TimeLabels } from '@/shared/grid/TimeLabels'
+import { buildCalendarWeeks, toFullDatetime } from '@/shared/grid/slots'
+import { WeekGridShell } from '@/shared/grid/WeekGridShell'
+import { WeekColumns } from '@/shared/grid/WeekColumns'
 
 type ParticipantAvailability = {
   id: string
@@ -16,6 +17,7 @@ type Props = {
   participants: ParticipantAvailability[]
   namesVisible: boolean
   weekIndex: number
+  onWeekIndexChange?: (index: number) => void
 }
 
 function heatColor(availableRatio: number, ifNeededRatio: number): string {
@@ -143,97 +145,11 @@ function SlotPopover({
   )
 }
 
-function HeatWeekColumns({
-  week,
-  rows,
-  slotMap,
-  total,
-  popover,
-  prevDayRef,
-  locale,
-  onCellClick,
-}: {
-  week: CalendarWeek
-  rows: GridRow[]
-  slotMap: Map<string, SlotDetail>
-  total: number
-  popover: PopoverState
-  prevDayRef: { current: CalendarDay | undefined }
-  locale: string
-  onCellClick: (e: React.MouseEvent, eventDateId: string, slot: string) => void
-}) {
-  return (
-    <div className="flex flex-1 border-l-2 border-grid-border-strong">
-      {week.days.map((day) => {
-        const ml = monthLabel(day, prevDayRef.current, locale)
-        prevDayRef.current = day
-
-        if (!day.active) {
-          return (
-            <div key={day.date} className="min-w-10 flex-1">
-              <div className="h-12 border-b border-grid-border text-center sticky top-0 bg-grid-muted z-10 flex flex-col justify-end pb-0.5">
-                {ml && (
-                  <span className="text-[9px] text-grid-text-ghost font-medium leading-none">{ml}</span>
-                )}
-                <span className="text-[10px] text-grid-text-ghost leading-none">{day.weekday}</span>
-                <span className="text-xs text-grid-text-ghost font-medium leading-tight">{day.dayNum}</span>
-              </div>
-              {rows.map((row) => (
-                <div key={row.slot} className="h-6 border-b border-r border-grid-border bg-grid-muted" />
-              ))}
-            </div>
-          )
-        }
-
-        return (
-          <div key={day.eventDateId} className="min-w-10 flex-1">
-            <div className="h-12 border-b border-grid-border-strong text-center sticky top-0 bg-grid-surface z-10 flex flex-col justify-end pb-0.5">
-              {ml && (
-                <span className="text-[9px] text-grid-text-faint font-medium leading-none">{ml}</span>
-              )}
-              <span className="text-[10px] text-grid-text-faint leading-none">{day.weekday}</span>
-              <span className="text-xs font-medium leading-tight">{day.dayNum}</span>
-            </div>
-            {rows.map((row) => {
-              const fullSlot = toFullDatetime(day.date, row.datetime)
-              const key = `${day.eventDateId}:${fullSlot}`
-              const detail = slotMap.get(key)
-              const availCount = detail?.available.length ?? 0
-              const ifNeededCount = detail?.ifNeeded.length ?? 0
-              const count = availCount + ifNeededCount
-              const availRatio = total > 0 ? availCount / total : 0
-              const ifNeededRatio = total > 0 ? ifNeededCount / total : 0
-              const isSelected =
-                popover?.eventDateId === day.eventDateId &&
-                popover?.slot === fullSlot
-              return (
-                <div
-                  key={fullSlot}
-                  className={`h-6 border-b border-r border-grid-border cursor-pointer flex items-center justify-center text-[9px] font-medium ${heatColor(availRatio, ifNeededRatio)} ${isSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
-                  onClick={(e) => onCellClick(e, day.eventDateId!, fullSlot)}
-                >
-                  {count > 0 && (
-                    <span className={availRatio >= 0.75 ? 'text-white' : 'text-gray-700'}>
-                      {count}
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-export function HeatmapView({ columns, rows, participants, namesVisible, weekIndex }: Props) {
+export function HeatmapView({ columns, rows, participants, namesVisible, weekIndex, onWeekIndexChange }: Props) {
   const intl = useIntl()
   const [popover, setPopover] = useState<PopoverState>(null)
   const weeks = useMemo(() => buildCalendarWeeks(columns, intl.locale), [columns, intl.locale])
   const total = participants.length
-  const safeIndex = Math.min(weekIndex, Math.max(0, weeks.length - 1))
-  const currentWeek = weeks[safeIndex] as CalendarWeek | undefined
 
   const slotMap = useMemo(() => {
     const map = new Map<string, SlotDetail>()
@@ -277,46 +193,57 @@ export function HeatmapView({ columns, rows, participants, namesVisible, weekInd
     return <p className="text-gray-500 text-sm"><FormattedMessage id="event.noResponses" defaultMessage="No responses yet." /></p>
   }
 
-  const prevDayRef = { current: undefined as CalendarDay | undefined }
-
-  const sharedProps = {
-    rows,
-    slotMap,
-    total,
-    popover,
-    prevDayRef,
-    locale: intl.locale,
-    onCellClick: handleCellClick,
-  }
-
   return (
-    <div>
-      {/* Desktop: all weeks */}
-      <div className="hidden sm:block">
-        <div className="overflow-auto max-h-[70vh] border border-grid-border-strong rounded">
-          <div className="flex">
-            <TimeLabels rows={rows} />
-            {(() => { prevDayRef.current = undefined; return null })()}
-            {weeks.map((week) => (
-              <HeatWeekColumns key={week.key} week={week} {...sharedProps} />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile: single week */}
-      <div className="sm:hidden">
-        <div className="overflow-auto max-h-[70vh] border border-grid-border-strong rounded">
-          <div className="flex">
-            <TimeLabels rows={rows} />
-            {(() => { prevDayRef.current = undefined; return null })()}
-            {currentWeek && (
-              <HeatWeekColumns week={currentWeek} {...sharedProps} />
-            )}
-          </div>
-        </div>
-      </div>
-
+    <WeekGridShell
+      weeks={weeks}
+      rows={rows}
+      weekIndex={weekIndex}
+      onWeekIndexChange={onWeekIndexChange}
+      renderWeek={(week, prevDayRef) => (
+        <WeekColumns
+          key={week.key}
+          week={week}
+          rows={rows}
+          prevDayRef={prevDayRef}
+          locale={intl.locale}
+          renderHeader={(day, ml) => (
+            <div className="h-12 border-b border-grid-border-strong text-center sticky top-0 bg-grid-surface z-10 flex flex-col justify-end pb-0.5">
+              {ml && (
+                <span className="text-[9px] text-grid-text-faint font-medium leading-none">{ml}</span>
+              )}
+              <span className="text-[10px] text-grid-text-faint leading-none">{day.weekday}</span>
+              <span className="text-xs font-medium leading-tight">{day.dayNum}</span>
+            </div>
+          )}
+          renderCell={(day, row) => {
+            const fullSlot = toFullDatetime(day.date, row.datetime)
+            const key = `${day.eventDateId}:${fullSlot}`
+            const detail = slotMap.get(key)
+            const availCount = detail?.available.length ?? 0
+            const ifNeededCount = detail?.ifNeeded.length ?? 0
+            const count = availCount + ifNeededCount
+            const availRatio = total > 0 ? availCount / total : 0
+            const ifNeededRatio = total > 0 ? ifNeededCount / total : 0
+            const isSelected =
+              popover?.eventDateId === day.eventDateId &&
+              popover?.slot === fullSlot
+            return (
+              <div
+                key={fullSlot}
+                className={`h-6 border-b border-r border-grid-border cursor-pointer flex items-center justify-center text-[9px] font-medium ${heatColor(availRatio, ifNeededRatio)} ${isSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
+                onClick={(e) => handleCellClick(e, day.eventDateId!, fullSlot)}
+              >
+                {count > 0 && (
+                  <span className={availRatio >= 0.75 ? 'text-white' : 'text-gray-700'}>
+                    {count}
+                  </span>
+                )}
+              </div>
+            )
+          }}
+        />
+      )}
+    >
       {popover && popoverDetail && (
         <SlotPopover
           state={popover}
@@ -327,6 +254,6 @@ export function HeatmapView({ columns, rows, participants, namesVisible, weekInd
           intl={intl}
         />
       )}
-    </div>
+    </WeekGridShell>
   )
 }

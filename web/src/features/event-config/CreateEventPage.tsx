@@ -88,7 +88,7 @@ export function CreateEventPage() {
 
       <TextField className="mb-4" value={description} onChange={setDescription}>
         <Label className="block text-sm font-medium mb-1"><FormattedMessage id="create.fieldDescription" defaultMessage="Description (optional)" /></Label>
-        <textarea className="w-full border rounded px-3 py-2 resize-none" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+        <textarea className="w-full border rounded px-3 py-2 resize-none" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} aria-label={intl.formatMessage({ id: 'create.fieldDescription', defaultMessage: 'Description' })} />
       </TextField>
 
       <div className="mb-4">
