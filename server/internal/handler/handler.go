@@ -327,7 +327,7 @@ func (h *Handler) ReplaceAvailability(w http.ResponseWriter, r *http.Request, ev
 			Kind        string `json:"kind"`
 			Reason      string `json:"reason"`
 		} `json:"entries"`
-		Nonce string `json:"nonce"`
+		Nonce string `json:"nonce,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
