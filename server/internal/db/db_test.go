@@ -78,6 +78,44 @@ func TestAvailabilityTriggerExclusivity(t *testing.T) {
 	}
 }
 
+func TestShareLinkVariantExclusion(t *testing.T) {
+	database, _ := db.New(":memory:")
+	defer database.Close()
+	db.Migrate(database)
+
+	// Create an event
+	database.Exec(`INSERT INTO events (id, title, host_token, timezone, slot_duration_minutes, time_range_start, time_range_end, created_at) VALUES ('e1', 'Test', 'tok1', 'UTC', 60, '09:00', '17:00', '2026-01-01T00:00:00Z')`)
+	// Create a participant for the individual link
+	database.Exec(`INSERT INTO participants (id, event_id, name, token, note) VALUES ('p1', 'e1', 'Alice', 'ptok1', '')`)
+	// Create a share link
+	database.Exec(`INSERT INTO share_links (id, event_id, token, label, created_at) VALUES ('sl1', 'e1', 'stok1', '', '2026-01-01T00:00:00Z')`)
+
+	// Insert as global
+	_, err := database.Exec(`INSERT INTO global_share_links (share_link_id) VALUES ('sl1')`)
+	if err != nil {
+		t.Fatalf("inserting global variant failed: %v", err)
+	}
+
+	// Try to also insert as individual — must fail
+	_, err = database.Exec(`INSERT INTO individual_share_links (share_link_id, name, participant_id) VALUES ('sl1', 'Alice', 'p1')`)
+	if err == nil {
+		t.Fatal("expected exclusion trigger to fire, but insert succeeded")
+	}
+
+	// Create another share link and insert as individual
+	database.Exec(`INSERT INTO share_links (id, event_id, token, label, created_at) VALUES ('sl2', 'e1', 'stok2', '', '2026-01-01T00:00:00Z')`)
+	_, err = database.Exec(`INSERT INTO individual_share_links (share_link_id, name, participant_id) VALUES ('sl2', 'Alice', 'p1')`)
+	if err != nil {
+		t.Fatalf("inserting individual variant failed: %v", err)
+	}
+
+	// Try to also insert as global — must fail
+	_, err = database.Exec(`INSERT INTO global_share_links (share_link_id) VALUES ('sl2')`)
+	if err == nil {
+		t.Fatal("expected exclusion trigger to fire, but insert succeeded")
+	}
+}
+
 func TestCompositeFKPreventssCrossEvent(t *testing.T) {
 	database, err := db.New(":memory:")
 	if err != nil {

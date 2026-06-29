@@ -153,4 +153,33 @@ CREATE TABLE IF NOT EXISTS share_links (
 
 CREATE INDEX IF NOT EXISTS idx_share_links_event_id ON share_links(event_id);
 CREATE INDEX IF NOT EXISTS idx_share_links_token ON share_links(token);
+
+CREATE TABLE IF NOT EXISTS global_share_links (
+	share_link_id TEXT PRIMARY KEY REFERENCES share_links(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS individual_share_links (
+	share_link_id  TEXT PRIMARY KEY REFERENCES share_links(id) ON DELETE CASCADE,
+	name           TEXT NOT NULL,
+	participant_id TEXT NOT NULL REFERENCES participants(id) ON DELETE CASCADE
+);
+
+CREATE TRIGGER IF NOT EXISTS trg_global_share_link_excl
+BEFORE INSERT ON global_share_links
+BEGIN
+	SELECT RAISE(ABORT, 'share link already has individual kind')
+	WHERE EXISTS (SELECT 1 FROM individual_share_links WHERE share_link_id = NEW.share_link_id);
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_individual_share_link_excl
+BEFORE INSERT ON individual_share_links
+BEGIN
+	SELECT RAISE(ABORT, 'share link already has global kind')
+	WHERE EXISTS (SELECT 1 FROM global_share_links WHERE share_link_id = NEW.share_link_id);
+END;
+
+INSERT OR IGNORE INTO global_share_links (share_link_id)
+SELECT id FROM share_links
+WHERE id NOT IN (SELECT share_link_id FROM global_share_links)
+  AND id NOT IN (SELECT share_link_id FROM individual_share_links);
 `
