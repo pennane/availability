@@ -44,7 +44,10 @@ export function useEventWebSocket(
       const msg: EventMessage = JSON.parse(event.data as string)
       switch (msg.kind) {
         case 'availability-updated':
-          if (nonceRef?.current && msg.nonce === nonceRef.current) break
+          if (nonceRef?.current && msg.nonce === nonceRef.current) {
+            nonceRef.current = null
+            break
+          }
           queryClient.invalidateQueries({ queryKey: ['event', eventId] })
           break
         case 'participant-joined':

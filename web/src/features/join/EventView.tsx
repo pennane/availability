@@ -333,7 +333,7 @@ function DateSuggestion({ eventId }: { eventId: string }) {
 
   return (
     <div className="flex gap-2 items-end max-w-md">
-      <div className="flex-1">
+      <div>
         <label className="text-xs text-gray-500">
           <FormattedMessage
             id="event.suggestDate"
@@ -809,6 +809,7 @@ export function EventView({ eventId }: { eventId: string }) {
   const howItWorksRef = useRef<HTMLDialogElement>(null)
   const [localEntries, setLocalEntries] = useState<SlotEntry[] | null>(null)
   const [weekIndex, setWeekIndex] = useState(0)
+  const [heatmapWeekIndex, setHeatmapWeekIndex] = useState(0)
   const generationRef = useRef(0)
 
   const entries: SlotEntry[] = useMemo(() => {
@@ -885,9 +886,7 @@ export function EventView({ eventId }: { eventId: string }) {
     [debouncedSave]
   )
 
-  const handleFlush = useCallback(() => {
-    flushSave()
-  }, [flushSave])
+
 
   const columns: GridColumn[] = useMemo(() => {
     if (!data || !isAuthenticated(data)) return []
@@ -1006,7 +1005,7 @@ export function EventView({ eventId }: { eventId: string }) {
           timeSlotConfig={authedData.timeSlotConfig}
           entries={entries}
           onChange={handleChange}
-          onFlush={handleFlush}
+          onFlush={flushSave}
           weekIndex={weekIndex}
           onWeekIndexChange={setWeekIndex}
         />
@@ -1023,6 +1022,10 @@ export function EventView({ eventId }: { eventId: string }) {
                   defaultValue={myData.data.name}
                   onChange={(e) => handleNameChange(e.target.value)}
                   className="px-1.5 py-0.5 border rounded w-28 text-gray-600"
+                  aria-label={intl.formatMessage({
+                    id: 'event.yourNamePlaceholder',
+                    defaultMessage: 'Your name'
+                  })}
                   placeholder={intl.formatMessage({
                     id: 'event.yourNamePlaceholder',
                     defaultMessage: 'Your name'
@@ -1060,12 +1063,21 @@ export function EventView({ eventId }: { eventId: string }) {
           eventId={eventId}
           suggestionsOpen={suggestionsOpen}
         />
+        {weeks.length > 1 && (
+          <WeekMinimap
+            weeks={weeks}
+            entries={entries}
+            currentIndex={heatmapWeekIndex}
+            onSelect={setHeatmapWeekIndex}
+          />
+        )}
         <HeatmapView
           columns={columns}
           rows={rows}
           participants={authedData.participants}
           namesVisible={namesVisible}
-          weekIndex={weekIndex}
+          weekIndex={heatmapWeekIndex}
+          onWeekIndexChange={setHeatmapWeekIndex}
         />
       </section>
     </div>

@@ -21,7 +21,6 @@ export function useGridInteraction({ entries, onChange }: Params) {
   const paintState = useRef<CellState | null>(null)
   const paintedCells = useRef<Set<string>>(new Set())
   const dragColumn = useRef<string | null>(null)
-  const dragDate = useRef<string | null>(null)
   const lastRow = useRef<number | null>(null)
   const rowsRef = useRef<string[]>([])
   const entriesRef = useRef(entries)
@@ -90,7 +89,6 @@ export function useGridInteraction({ entries, onChange }: Params) {
 
       paintState.current = next
       dragColumn.current = eventDateId
-      dragDate.current = datePrefix(slot)
       lastRow.current = rowIndex
       paintedCells.current = new Set()
       startCoords.current = { x: clientX, y: clientY }
@@ -147,7 +145,6 @@ export function useGridInteraction({ entries, onChange }: Params) {
     paintState.current = null
     paintedCells.current = new Set()
     dragColumn.current = null
-    dragDate.current = null
     lastRow.current = null
     isDragging.current = false
     startCoords.current = { x: 0, y: 0 }
