@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { FormattedMessage } from 'react-intl'
 import { api } from '@/shared/api/client'
-import { setToken } from '@/shared/api/token'
+import { setToken, setIndividualLink } from '@/shared/api/token'
 import { JoinPage } from './JoinPage'
 
 type Props = {
@@ -31,12 +31,21 @@ export function InviteResolver({ eventId, token }: Props) {
     if (!data) {
       setToken(eventId, token)
       navigate({ to: '/events/$eventId', params: { eventId } })
+      return
+    }
+    if (data.kind === 'individual' && data.participantToken) {
+      setToken(eventId, data.participantToken)
+      setIndividualLink(eventId)
+      navigate({ to: '/events/$eventId', params: { eventId } })
     }
   }, [data, isLoading, eventId, token, navigate])
 
   if (isLoading) return <div className="p-4 text-center"><FormattedMessage id="common.loading" defaultMessage="Loading..." /></div>
 
   if (data) {
+    if (data.kind === 'individual') {
+      return <div className="p-4 text-center"><FormattedMessage id="common.redirecting" defaultMessage="Redirecting..." /></div>
+    }
     return (
       <JoinPage
         eventId={eventId}

@@ -50,3 +50,13 @@ function removeKnownEvent(eventId: string): void {
   const filtered = events.filter((e) => e.eventId !== eventId)
   localStorage.setItem(EVENTS_KEY, JSON.stringify(filtered))
 }
+
+const INDIVIDUAL_LINK_PREFIX = 'individual-link:'
+
+export function setIndividualLink(eventId: string): void {
+  localStorage.setItem(INDIVIDUAL_LINK_PREFIX + eventId, '1')
+}
+
+export function isIndividualLink(eventId: string): boolean {
+  return localStorage.getItem(INDIVIDUAL_LINK_PREFIX + eventId) === '1'
+}
