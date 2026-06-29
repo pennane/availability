@@ -21,6 +21,7 @@ func setupServer(t *testing.T) (*chi.Mux, func()) {
 	db.Migrate(database)
 
 	h := handler.New(
+		database,
 		repository.NewSQLiteEventRepo(database),
 		repository.NewSQLiteParticipantRepo(database),
 		repository.NewSQLiteEventDateRepo(database),

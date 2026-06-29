@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 )
 
 type Handler struct {
+	db           *sql.DB
 	events       repository.EventRepository
 	participants repository.ParticipantRepository
 	dates        repository.EventDateRepository
@@ -22,6 +24,7 @@ type Handler struct {
 }
 
 func New(
+	db *sql.DB,
 	events repository.EventRepository,
 	participants repository.ParticipantRepository,
 	dates repository.EventDateRepository,
@@ -30,6 +33,7 @@ func New(
 	broadcast *ws.Broadcast,
 ) *Handler {
 	return &Handler{
+		db:           db,
 		events:       events,
 		participants: participants,
 		dates:        dates,
@@ -619,7 +623,19 @@ func (h *Handler) CreateShareLink(w http.ResponseWriter, r *http.Request, eventI
 			Name:    req.Name,
 			Token:   domain.NewToken(),
 		}
-		if err := h.participants.Create(participant); err != nil {
+
+		tx, err := h.db.Begin()
+		if err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		defer tx.Rollback()
+
+		_, err = tx.Exec(
+			`INSERT INTO participants (id, event_id, name, token, note) VALUES (?, ?, ?, ?, ?)`,
+			participant.ID, participant.EventID, participant.Name, participant.Token, participant.Note,
+		)
+		if err != nil {
 			http.Error(w, "failed to create participant", http.StatusInternalServerError)
 			return
 		}
@@ -628,8 +644,13 @@ func (h *Handler) CreateShareLink(w http.ResponseWriter, r *http.Request, eventI
 			Name:          req.Name,
 			ParticipantID: participant.ID,
 		}
-		if err := h.shareLinks.Create(link); err != nil {
+		if err := h.shareLinks.CreateWithKind(tx, link); err != nil {
 			http.Error(w, "failed to create share link", http.StatusInternalServerError)
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 

@@ -45,7 +45,7 @@ func main() {
 	shareLinkRepo := repository.NewSQLiteShareLinkRepo(database)
 	broadcast := ws.NewBroadcast()
 
-	h := handler.New(eventRepo, participantRepo, dateRepo, availRepo, shareLinkRepo, broadcast)
+	h := handler.New(database, eventRepo, participantRepo, dateRepo, availRepo, shareLinkRepo, broadcast)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
