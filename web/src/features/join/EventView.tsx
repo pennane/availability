@@ -382,7 +382,7 @@ function HostSettings({
     }
   )
 
-  const debouncedSave = useDebouncedCallback(
+  const { call: debouncedSave } = useDebouncedCallback(
     (body: components['schemas']['UpdateEventRequest']) =>
       updateMutation.mutate(body),
     600
@@ -808,6 +808,7 @@ export function EventView({ eventId }: { eventId: string }) {
   const howItWorksRef = useRef<HTMLDialogElement>(null)
   const [localEntries, setLocalEntries] = useState<SlotEntry[] | null>(null)
   const [weekIndex, setWeekIndex] = useState(0)
+  const [heatmapWeekIndex, setHeatmapWeekIndex] = useState(0)
 
   const entries: SlotEntry[] = useMemo(() => {
     if (localEntries !== null) return localEntries
@@ -849,16 +850,16 @@ export function EventView({ eventId }: { eventId: string }) {
     { alsoInvalidateMe: true }
   )
 
-  const handleNameChange = useDebouncedCallback(
+  const { call: handleNameChange } = useDebouncedCallback(
     (name: string) => {
       if (name.trim()) nameMutation.mutate(name.trim())
     },
     600
   )
 
-  const debouncedSave = useDebouncedCallback(
+  const { call: debouncedSave, flush: flushSave } = useDebouncedCallback(
     (newEntries: SlotEntry[]) => saveMutation.mutate(newEntries),
-    800
+    300
   )
 
   const handleChange = useCallback(
@@ -1025,12 +1026,22 @@ export function EventView({ eventId }: { eventId: string }) {
 
       {/* Group section */}
       <section>
-        <h2 className="text-sm font-semibold text-gray-700 mb-2">
-          <FormattedMessage
-            id="event.groupAvailability"
-            defaultMessage="Group"
-          />
-        </h2>
+        <div className="flex gap-x-4 items-end">
+          <h2 className="text-sm font-semibold text-gray-700 mb-2">
+            <FormattedMessage
+              id="event.groupAvailability"
+              defaultMessage="Group"
+            />
+          </h2>
+          {weeks.length > 1 && (
+            <WeekMinimap
+              weeks={weeks}
+              entries={entries}
+              currentIndex={heatmapWeekIndex}
+              onSelect={setHeatmapWeekIndex}
+            />
+          )}
+        </div>
         <GroupSummary
           columns={columns}
           participants={authedData.participants}
@@ -1044,7 +1055,8 @@ export function EventView({ eventId }: { eventId: string }) {
           rows={rows}
           participants={authedData.participants}
           namesVisible={namesVisible}
-          weekIndex={weekIndex}
+          weekIndex={heatmapWeekIndex}
+          onWeekIndexChange={setHeatmapWeekIndex}
         />
       </section>
     </div>
