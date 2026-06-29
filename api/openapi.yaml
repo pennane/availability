@@ -707,8 +707,18 @@ components:
           format: date
 
     ShareLink:
+      oneOf:
+        - $ref: '#/components/schemas/GlobalShareLink'
+        - $ref: '#/components/schemas/IndividualShareLink'
+      discriminator:
+        propertyName: kind
+        mapping:
+          global: '#/components/schemas/GlobalShareLink'
+          individual: '#/components/schemas/IndividualShareLink'
+
+    GlobalShareLink:
       type: object
-      required: [id, token, label, createdAt]
+      required: [id, token, label, createdAt, kind]
       properties:
         id:
           type: string
@@ -720,21 +730,83 @@ components:
         createdAt:
           type: string
           format: date-time
+        kind:
+          type: string
+          const: global
+
+    IndividualShareLink:
+      type: object
+      required: [id, token, label, createdAt, kind, name, participantId]
+      properties:
+        id:
+          type: string
+          format: uuid
+        token:
+          type: string
+        label:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        kind:
+          type: string
+          const: individual
+        name:
+          type: string
+        participantId:
+          type: string
+          format: uuid
 
     CreateShareLinkRequest:
+      oneOf:
+        - $ref: '#/components/schemas/CreateGlobalShareLinkRequest'
+        - $ref: '#/components/schemas/CreateIndividualShareLinkRequest'
+      discriminator:
+        propertyName: kind
+        mapping:
+          global: '#/components/schemas/CreateGlobalShareLinkRequest'
+          individual: '#/components/schemas/CreateIndividualShareLinkRequest'
+
+    CreateGlobalShareLinkRequest:
       type: object
+      required: [kind]
       properties:
+        kind:
+          type: string
+          const: global
+        label:
+          type: string
+          maxLength: 200
+
+    CreateIndividualShareLinkRequest:
+      type: object
+      required: [kind, name]
+      properties:
+        kind:
+          type: string
+          const: individual
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
         label:
           type: string
           maxLength: 200
 
     ValidateShareTokenResponse:
       type: object
-      required: [valid, title]
+      required: [valid, title, kind]
       properties:
         valid:
           type: boolean
         title:
           type: string
         description:
+          type: string
+        kind:
+          type: string
+          enum: [global, individual]
+        participantToken:
+          type: string
+        name:
           type: string

@@ -48,6 +48,24 @@ func (e SlotDuration) Valid() bool {
 	}
 }
 
+// Defines values for ValidateShareTokenResponseKind.
+const (
+	Global     ValidateShareTokenResponseKind = "global"
+	Individual ValidateShareTokenResponseKind = "individual"
+)
+
+// Valid indicates whether the value is a known member of the ValidateShareTokenResponseKind enum.
+func (e ValidateShareTokenResponseKind) Valid() bool {
+	switch e {
+	case Global:
+		return true
+	case Individual:
+		return true
+	default:
+		return false
+	}
+}
+
 // AnonymousVisibility defines model for AnonymousVisibility.
 type AnonymousVisibility struct {
 	Kind string `json:"kind"`
@@ -91,9 +109,22 @@ type CreateEventResponse struct {
 	HostToken string             `json:"hostToken"`
 }
 
+// CreateGlobalShareLinkRequest defines model for CreateGlobalShareLinkRequest.
+type CreateGlobalShareLinkRequest struct {
+	Kind  string  `json:"kind"`
+	Label *string `json:"label,omitempty"`
+}
+
+// CreateIndividualShareLinkRequest defines model for CreateIndividualShareLinkRequest.
+type CreateIndividualShareLinkRequest struct {
+	Kind  string  `json:"kind"`
+	Label *string `json:"label,omitempty"`
+	Name  string  `json:"name"`
+}
+
 // CreateShareLinkRequest defines model for CreateShareLinkRequest.
 type CreateShareLinkRequest struct {
-	Label *string `json:"label,omitempty"`
+	union json.RawMessage
 }
 
 // EventBase defines model for EventBase.
@@ -116,6 +147,15 @@ type EventDate struct {
 // EventView defines model for EventView.
 type EventView struct {
 	union json.RawMessage
+}
+
+// GlobalShareLink defines model for GlobalShareLink.
+type GlobalShareLink struct {
+	CreatedAt time.Time          `json:"createdAt"`
+	Id        openapi_types.UUID `json:"id"`
+	Kind      string             `json:"kind"`
+	Label     string             `json:"label"`
+	Token     string             `json:"token"`
 }
 
 // HostEventView defines model for HostEventView.
@@ -150,6 +190,17 @@ type IfNeededEntry struct {
 
 	// Slot Full ISO datetime in host timezone
 	Slot string `json:"slot"`
+}
+
+// IndividualShareLink defines model for IndividualShareLink.
+type IndividualShareLink struct {
+	CreatedAt     time.Time          `json:"createdAt"`
+	Id            openapi_types.UUID `json:"id"`
+	Kind          string             `json:"kind"`
+	Label         string             `json:"label"`
+	Name          string             `json:"name"`
+	ParticipantId openapi_types.UUID `json:"participantId"`
+	Token         string             `json:"token"`
 }
 
 // JoinEventRequest defines model for JoinEventRequest.
@@ -235,10 +286,7 @@ type ReplaceAvailabilityRequest struct {
 
 // ShareLink defines model for ShareLink.
 type ShareLink struct {
-	CreatedAt time.Time          `json:"createdAt"`
-	Id        openapi_types.UUID `json:"id"`
-	Label     string             `json:"label"`
-	Token     string             `json:"token"`
+	union json.RawMessage
 }
 
 // SlotDuration defines model for SlotDuration.
@@ -281,10 +329,16 @@ type UpdateParticipationRequest struct {
 
 // ValidateShareTokenResponse defines model for ValidateShareTokenResponse.
 type ValidateShareTokenResponse struct {
-	Description *string `json:"description,omitempty"`
-	Title       string  `json:"title"`
-	Valid       bool    `json:"valid"`
+	Description      *string                        `json:"description,omitempty"`
+	Kind             ValidateShareTokenResponseKind `json:"kind"`
+	Name             *string                        `json:"name,omitempty"`
+	ParticipantToken *string                        `json:"participantToken,omitempty"`
+	Title            string                         `json:"title"`
+	Valid            bool                           `json:"valid"`
 }
+
+// ValidateShareTokenResponseKind defines model for ValidateShareTokenResponse.Kind.
+type ValidateShareTokenResponseKind string
 
 // VisibilityPolicy defines model for VisibilityPolicy.
 type VisibilityPolicy struct {
@@ -400,6 +454,95 @@ func (t AvailabilityEntry) MarshalJSON() ([]byte, error) {
 }
 
 func (t *AvailabilityEntry) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsCreateGlobalShareLinkRequest returns the union data inside the CreateShareLinkRequest as a CreateGlobalShareLinkRequest
+func (t CreateShareLinkRequest) AsCreateGlobalShareLinkRequest() (CreateGlobalShareLinkRequest, error) {
+	var body CreateGlobalShareLinkRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCreateGlobalShareLinkRequest overwrites any union data inside the CreateShareLinkRequest as the provided CreateGlobalShareLinkRequest
+func (t *CreateShareLinkRequest) FromCreateGlobalShareLinkRequest(v CreateGlobalShareLinkRequest) error {
+	v.Kind = "global"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCreateGlobalShareLinkRequest performs a merge with any union data inside the CreateShareLinkRequest, using the provided CreateGlobalShareLinkRequest
+func (t *CreateShareLinkRequest) MergeCreateGlobalShareLinkRequest(v CreateGlobalShareLinkRequest) error {
+	v.Kind = "global"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCreateIndividualShareLinkRequest returns the union data inside the CreateShareLinkRequest as a CreateIndividualShareLinkRequest
+func (t CreateShareLinkRequest) AsCreateIndividualShareLinkRequest() (CreateIndividualShareLinkRequest, error) {
+	var body CreateIndividualShareLinkRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCreateIndividualShareLinkRequest overwrites any union data inside the CreateShareLinkRequest as the provided CreateIndividualShareLinkRequest
+func (t *CreateShareLinkRequest) FromCreateIndividualShareLinkRequest(v CreateIndividualShareLinkRequest) error {
+	v.Kind = "individual"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCreateIndividualShareLinkRequest performs a merge with any union data inside the CreateShareLinkRequest, using the provided CreateIndividualShareLinkRequest
+func (t *CreateShareLinkRequest) MergeCreateIndividualShareLinkRequest(v CreateIndividualShareLinkRequest) error {
+	v.Kind = "individual"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t CreateShareLinkRequest) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"kind"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t CreateShareLinkRequest) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "global":
+		return t.AsCreateGlobalShareLinkRequest()
+	case "individual":
+		return t.AsCreateIndividualShareLinkRequest()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t CreateShareLinkRequest) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *CreateShareLinkRequest) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -608,6 +751,95 @@ func (t EventView) MarshalJSON() ([]byte, error) {
 }
 
 func (t *EventView) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsGlobalShareLink returns the union data inside the ShareLink as a GlobalShareLink
+func (t ShareLink) AsGlobalShareLink() (GlobalShareLink, error) {
+	var body GlobalShareLink
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGlobalShareLink overwrites any union data inside the ShareLink as the provided GlobalShareLink
+func (t *ShareLink) FromGlobalShareLink(v GlobalShareLink) error {
+	v.Kind = "global"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGlobalShareLink performs a merge with any union data inside the ShareLink, using the provided GlobalShareLink
+func (t *ShareLink) MergeGlobalShareLink(v GlobalShareLink) error {
+	v.Kind = "global"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsIndividualShareLink returns the union data inside the ShareLink as a IndividualShareLink
+func (t ShareLink) AsIndividualShareLink() (IndividualShareLink, error) {
+	var body IndividualShareLink
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromIndividualShareLink overwrites any union data inside the ShareLink as the provided IndividualShareLink
+func (t *ShareLink) FromIndividualShareLink(v IndividualShareLink) error {
+	v.Kind = "individual"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeIndividualShareLink performs a merge with any union data inside the ShareLink, using the provided IndividualShareLink
+func (t *ShareLink) MergeIndividualShareLink(v IndividualShareLink) error {
+	v.Kind = "individual"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ShareLink) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"kind"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ShareLink) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "global":
+		return t.AsGlobalShareLink()
+	case "individual":
+		return t.AsIndividualShareLink()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ShareLink) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ShareLink) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -1498,43 +1730,46 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"hcj0x/GP42g32/03AAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
