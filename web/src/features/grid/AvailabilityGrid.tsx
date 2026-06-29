@@ -5,6 +5,7 @@ import { useGridInteraction } from './useGridInteraction'
 import type { CellState, SlotEntry, GridColumn, CalendarDay, CalendarWeek } from './types'
 import { generateSlotRows, buildCalendarWeeks, monthLabel, weekRangeLabel, toFullDatetime } from '@/shared/grid/slots'
 import { TimeLabels } from '@/shared/grid/TimeLabels'
+import { useWeekNavigation } from '@/shared/grid/useWeekPagination'
 
 export { buildCalendarWeeks, weekRangeLabel }
 export type { CalendarWeek }
@@ -224,26 +225,8 @@ export function AvailabilityGrid({
     useGridInteraction({ entries, onChange, onFlush })
   const desktopScrollRef = useRef<HTMLDivElement>(null)
 
-  const hasActive = useCallback((w: CalendarWeek) => w.days.some(d => d.active), [])
-  const safeIndex = Math.min(weekIndex, Math.max(0, weeks.length - 1))
-  const currentWeek = weeks[safeIndex] as CalendarWeek | undefined
-
-  const prevActive = useMemo(() => {
-    for (let i = safeIndex - 1; i >= 0; i--) if (hasActive(weeks[i])) return i
-    return -1
-  }, [weeks, safeIndex, hasActive])
-
-  const nextActive = useMemo(() => {
-    for (let i = safeIndex + 1; i < weeks.length; i++) if (hasActive(weeks[i])) return i
-    return -1
-  }, [weeks, safeIndex, hasActive])
-
-  const hasPrev = prevActive >= 0
-  const hasNext = nextActive >= 0
-
-  const activeWeekIndices = useMemo(() => weeks.map((w, i) => hasActive(w) ? i : -1).filter(i => i >= 0), [weeks, hasActive])
-  const activePosition = activeWeekIndices.indexOf(safeIndex) + 1
-  const activeTotal = activeWeekIndices.length
+  const { safeIndex, currentWeek, prevActive, nextActive, hasPrev, hasNext, activePosition, activeTotal } =
+    useWeekNavigation(weeks, weekIndex)
 
   useEffect(() => {
     const container = desktopScrollRef.current

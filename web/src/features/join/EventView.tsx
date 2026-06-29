@@ -941,6 +941,11 @@ export function EventView({ eventId }: { eventId: string }) {
     [columns, intl.locale]
   )
 
+  const activeParticipants = useMemo(
+    () => (data && isAuthenticated(data)) ? data.participants.filter(p => p.availability.length > 0) : [],
+    [data]
+  )
+
   useEffect(() => {
     if (data && isAuthenticated(data)) {
       trackEvent(eventId, data.title)
@@ -1100,7 +1105,7 @@ export function EventView({ eventId }: { eventId: string }) {
         </h2>
         <GroupSummary
           columns={columns}
-          participants={authedData.participants}
+          participants={activeParticipants}
           namesVisible={namesVisible}
           isHost={data.role === 'host'}
           eventId={eventId}
@@ -1117,7 +1122,7 @@ export function EventView({ eventId }: { eventId: string }) {
         <HeatmapView
           columns={columns}
           rows={rows}
-          participants={authedData.participants}
+          participants={activeParticipants}
           namesVisible={namesVisible}
           weekIndex={heatmapWeekIndex}
           onWeekIndexChange={setHeatmapWeekIndex}

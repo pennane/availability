@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { FormattedMessage, useIntl } from 'react-intl'
 import type { GridRow, CalendarDay, CalendarWeek } from '@/features/grid/types'
 import { TimeLabels } from './TimeLabels'
+import { useWeekNavigation } from './useWeekPagination'
 
 type WeekGridShellProps = {
   weeks: CalendarWeek[]
@@ -23,10 +24,8 @@ export function WeekGridShell({
 }: WeekGridShellProps) {
   const intl = useIntl()
   const desktopScrollRef = useRef<HTMLDivElement>(null)
-  const safeIndex = Math.min(weekIndex, Math.max(0, weeks.length - 1))
-  const currentWeek = weeks[safeIndex] as CalendarWeek | undefined
-  const hasPrev = safeIndex > 0
-  const hasNext = safeIndex < weeks.length - 1
+  const { safeIndex, currentWeek, prevActive, nextActive, hasPrev, hasNext, activePosition, activeTotal } =
+    useWeekNavigation(weeks, weekIndex)
 
   useEffect(() => {
     const container = desktopScrollRef.current
@@ -59,10 +58,10 @@ export function WeekGridShell({
       </div>
 
       <div className="sm:hidden">
-        {onWeekIndexChange && weeks.length > 1 && (
+        {onWeekIndexChange && activeTotal > 1 && (
           <div className="flex items-center justify-between mb-1">
             <button
-              onClick={() => onWeekIndexChange(safeIndex - 1)}
+              onClick={() => onWeekIndexChange(prevActive)}
               disabled={!hasPrev}
               className="p-1.5 text-grid-text-muted hover:bg-grid-empty-hover rounded disabled:opacity-30"
               aria-label={intl.formatMessage({ id: 'grid.previousWeek', defaultMessage: 'Previous week' })}
@@ -70,10 +69,10 @@ export function WeekGridShell({
               &larr;
             </button>
             <span className="text-xs text-grid-text-muted font-medium">
-              <FormattedMessage id="grid.weekOf" defaultMessage="Week {current} / {total}" values={{ current: safeIndex + 1, total: weeks.length }} />
+              <FormattedMessage id="grid.weekOf" defaultMessage="Week {current} / {total}" values={{ current: activePosition, total: activeTotal }} />
             </span>
             <button
-              onClick={() => onWeekIndexChange(safeIndex + 1)}
+              onClick={() => onWeekIndexChange(nextActive)}
               disabled={!hasNext}
               className="p-1.5 text-grid-text-muted hover:bg-grid-empty-hover rounded disabled:opacity-30"
               aria-label={intl.formatMessage({ id: 'grid.nextWeek', defaultMessage: 'Next week' })}
