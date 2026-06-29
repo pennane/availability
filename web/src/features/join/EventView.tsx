@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/shared/api/client'
 import { useEventMutation } from '@/shared/api/useEventMutation'
 import { useEventWebSocket } from '@/shared/api/ws'
-import { getToken, trackEvent } from '@/shared/api/token'
+import { getToken, trackEvent, isIndividualLink } from '@/shared/api/token'
 import { useDebouncedCallback } from '@/shared/hooks/useDebouncedCallback'
 import { generateSlotRows } from '@/shared/grid/slots'
 import { Button } from '@/shared/ui/Button'
@@ -603,7 +603,7 @@ function HostSettings({
 function CopyMyLink({ eventId }: { eventId: string }) {
   const storageKey = `link-copied:${eventId}`
   const [hasCopiedBefore, setHasCopiedBefore] = useState(
-    () => localStorage.getItem(storageKey) === '1'
+    () => localStorage.getItem(storageKey) === '1' || isIndividualLink(eventId)
   )
   const [justCopied, setJustCopied] = useState(false)
   const token = getToken(eventId)
