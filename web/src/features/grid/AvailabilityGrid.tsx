@@ -220,8 +220,8 @@ export function AvailabilityGrid({
   const intl = useIntl()
   const rows = useMemo(() => generateSlotRows(timeSlotConfig), [timeSlotConfig])
   const weeks = useMemo(() => buildCalendarWeeks(columns, intl.locale), [columns, intl.locale])
-  const { getState, onPointerDown, onPointerMove, onPointerUp, setSlotList, toggleDay } =
-    useGridInteraction({ entries, onChange })
+  const { getState, onPointerDown, setSlotList, toggleDay } =
+    useGridInteraction({ entries, onChange, onFlush })
   const desktopScrollRef = useRef<HTMLDivElement>(null)
 
   const hasActive = useCallback((w: CalendarWeek) => w.days.some(d => d.active), [])
@@ -278,11 +278,6 @@ export function AvailabilityGrid({
     setSlotList(rows.map((row) => row.datetime))
   }, [rows, setSlotList])
 
-  const handlePointerEnd = useCallback(() => {
-    const wasDragging = onPointerUp()
-    if (wasDragging) onFlush?.()
-  }, [onPointerUp, onFlush])
-
   const prevDayRef = { current: undefined as CalendarDay | undefined }
 
   const sharedProps = {
@@ -300,9 +295,6 @@ export function AvailabilityGrid({
     <div
       role="grid"
       aria-label="Availability grid"
-      onPointerMove={onPointerMove}
-      onPointerUp={handlePointerEnd}
-      onPointerLeave={handlePointerEnd}
     >
       {/* Desktop: all weeks */}
       <div className="hidden sm:block">

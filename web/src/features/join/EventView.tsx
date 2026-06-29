@@ -332,7 +332,7 @@ function DateSuggestion({ eventId }: { eventId: string }) {
   )
 
   return (
-    <div className="flex gap-2 items-end max-w-md">
+    <div className="flex gap-2 items-end">
       <div>
         <label className="text-xs text-gray-500">
           <FormattedMessage

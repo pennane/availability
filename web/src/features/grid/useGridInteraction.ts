@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import type { CellState, SlotEntry } from './types'
 
 const CYCLE_ORDER: CellState[] = ['empty', 'available', 'if-needed']
@@ -15,9 +15,10 @@ function datePrefix(fullSlot: string): string {
 type Params = {
   entries: SlotEntry[]
   onChange: (entries: SlotEntry[]) => void
+  onFlush?: () => void
 }
 
-export function useGridInteraction({ entries, onChange }: Params) {
+export function useGridInteraction({ entries, onChange, onFlush }: Params) {
   const paintState = useRef<CellState | null>(null)
   const paintedCells = useRef<Set<string>>(new Set())
   const dragColumn = useRef<string | null>(null)
@@ -25,6 +26,10 @@ export function useGridInteraction({ entries, onChange }: Params) {
   const rowsRef = useRef<string[]>([])
   const entriesRef = useRef(entries)
   entriesRef.current = entries
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+  const onFlushRef = useRef(onFlush)
+  onFlushRef.current = onFlush
 
   const startCoords = useRef({ x: 0, y: 0 })
   const startPointerType = useRef<string | null>(null)
@@ -71,8 +76,66 @@ export function useGridInteraction({ entries, onChange }: Params) {
       }
     }
     entriesRef.current = current
-    onChange(current)
+    onChangeRef.current(current)
   }
+
+  const handleMove = useCallback((e: PointerEvent) => {
+    if (paintState.current === null) return
+
+    if (!isDragging.current) {
+      if (startPointerType.current === 'touch') {
+        const dx = e.clientX - startCoords.current.x
+        const dy = e.clientY - startCoords.current.y
+        if (dx * dx + dy * dy < 25) return
+      }
+      isDragging.current = true
+    }
+
+    const el = document.elementFromPoint(e.clientX, e.clientY)
+    if (!(el instanceof HTMLElement)) return
+
+    const eventDateId = el.dataset.eventDateId
+    const slot = el.dataset.slot
+    const rowIndexStr = el.dataset.rowIndex
+    if (!eventDateId || !slot || rowIndexStr == null) return
+
+    if (dragColumn.current !== null && eventDateId !== dragColumn.current) return
+
+    const rowIndex = parseInt(rowIndexStr, 10)
+    const date = datePrefix(slot)
+
+    if (lastRow.current !== null && Math.abs(rowIndex - lastRow.current) > 1) {
+      fillRange(eventDateId, date, lastRow.current, rowIndex, paintState.current)
+    } else {
+      const updated = applyToCell(entriesRef.current, eventDateId, slot, paintState.current)
+      entriesRef.current = updated
+      onChangeRef.current(updated)
+    }
+    lastRow.current = rowIndex
+  }, [])
+
+  const handleEnd = useCallback(() => {
+    const wasDragging = isDragging.current
+    paintState.current = null
+    paintedCells.current = new Set()
+    dragColumn.current = null
+    lastRow.current = null
+    isDragging.current = false
+    startCoords.current = { x: 0, y: 0 }
+    startPointerType.current = null
+    document.removeEventListener('pointermove', handleMove)
+    document.removeEventListener('pointerup', handleEnd)
+    document.removeEventListener('pointercancel', handleEnd)
+    if (wasDragging) onFlushRef.current?.()
+  }, [handleMove])
+
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('pointermove', handleMove)
+      document.removeEventListener('pointerup', handleEnd)
+      document.removeEventListener('pointercancel', handleEnd)
+    }
+  }, [handleMove, handleEnd])
 
   const onPointerDown = useCallback(
     (eventDateId: string, slot: string, rowIndex: number, pointerType: string, clientX: number, clientY: number) => {
@@ -98,59 +161,13 @@ export function useGridInteraction({ entries, onChange }: Params) {
       const updated = applyToCell(entriesRef.current, eventDateId, slot, next)
       entriesRef.current = updated
       onChange(updated)
+
+      document.addEventListener('pointermove', handleMove)
+      document.addEventListener('pointerup', handleEnd)
+      document.addEventListener('pointercancel', handleEnd)
     },
-    [getState, onChange],
+    [getState, onChange, handleMove, handleEnd],
   )
-
-  const onPointerMove = useCallback(
-    (e: { clientX: number; clientY: number }) => {
-      if (paintState.current === null) return
-
-      if (!isDragging.current) {
-        if (startPointerType.current === 'touch') {
-          const dx = e.clientX - startCoords.current.x
-          const dy = e.clientY - startCoords.current.y
-          if (dx * dx + dy * dy < 25) return
-        }
-        isDragging.current = true
-      }
-
-      const el = document.elementFromPoint(e.clientX, e.clientY)
-      if (!(el instanceof HTMLElement)) return
-
-      const eventDateId = el.dataset.eventDateId
-      const slot = el.dataset.slot
-      const rowIndexStr = el.dataset.rowIndex
-      if (!eventDateId || !slot || rowIndexStr == null) return
-
-      if (dragColumn.current !== null && eventDateId !== dragColumn.current) return
-
-      const rowIndex = parseInt(rowIndexStr, 10)
-      const date = datePrefix(slot)
-
-      if (lastRow.current !== null && Math.abs(rowIndex - lastRow.current) > 1) {
-        fillRange(eventDateId, date, lastRow.current, rowIndex, paintState.current)
-      } else {
-        const updated = applyToCell(entriesRef.current, eventDateId, slot, paintState.current)
-        entriesRef.current = updated
-        onChange(updated)
-      }
-      lastRow.current = rowIndex
-    },
-    [onChange],
-  )
-
-  const onPointerUp = useCallback((): boolean => {
-    const wasDragging = isDragging.current
-    paintState.current = null
-    paintedCells.current = new Set()
-    dragColumn.current = null
-    lastRow.current = null
-    isDragging.current = false
-    startCoords.current = { x: 0, y: 0 }
-    startPointerType.current = null
-    return wasDragging
-  }, [])
 
   const setSlotList = useCallback((slots: string[]) => {
     rowsRef.current = slots
@@ -176,5 +193,5 @@ export function useGridInteraction({ entries, onChange }: Params) {
     [onChange],
   )
 
-  return { getState, onPointerDown, onPointerMove, onPointerUp, setSlotList, toggleDay }
+  return { getState, onPointerDown, setSlotList, toggleDay }
 }
