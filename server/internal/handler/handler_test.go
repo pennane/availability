@@ -355,6 +355,183 @@ func TestUpdateEvent_ImmutableFieldsRejected(t *testing.T) {
 	}
 }
 
+func TestCreateIndividualShareLink(t *testing.T) {
+	r, cleanup := setupServer(t)
+	defer cleanup()
+
+	// Create event
+	body := `{
+		"title": "Individual Link Test",
+		"timezone": "UTC",
+		"timeSlotConfig": {"durationMinutes": 60, "rangeStart": "10:00", "rangeEnd": "18:00"},
+		"visibility": {"kind": "names-visible"},
+		"suggestions": {"kind": "open"},
+		"dates": ["2026-08-01"]
+	}`
+	req := httptest.NewRequest("POST", "/events", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	var createResp map[string]string
+	json.Unmarshal(w.Body.Bytes(), &createResp)
+	eventID := createResp["eventId"]
+	hostToken := createResp["hostToken"]
+
+	// Create individual share link
+	linkBody := `{"kind": "individual", "name": "Alice"}`
+	req = httptest.NewRequest("POST", "/events/"+eventID+"/share-links", bytes.NewBufferString(linkBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+hostToken)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create individual link status = %d, want 201. body: %s", w.Code, w.Body.String())
+	}
+
+	var linkResp map[string]any
+	json.Unmarshal(w.Body.Bytes(), &linkResp)
+	if linkResp["kind"] != "individual" {
+		t.Errorf("kind = %v, want individual", linkResp["kind"])
+	}
+	if linkResp["name"] != "Alice" {
+		t.Errorf("name = %v, want Alice", linkResp["name"])
+	}
+	if linkResp["participantId"] == nil || linkResp["participantId"] == "" {
+		t.Error("missing participantId in response")
+	}
+
+	// Validate the share token — should return kind=individual with participantToken
+	shareToken := linkResp["token"].(string)
+	req = httptest.NewRequest("GET", "/events/"+eventID+"/invite/"+shareToken, nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("validate status = %d, want 200. body: %s", w.Code, w.Body.String())
+	}
+
+	var validateResp map[string]any
+	json.Unmarshal(w.Body.Bytes(), &validateResp)
+	if validateResp["kind"] != "individual" {
+		t.Errorf("validate kind = %v, want individual", validateResp["kind"])
+	}
+	if validateResp["participantToken"] == nil || validateResp["participantToken"] == "" {
+		t.Error("missing participantToken in validate response")
+	}
+	if validateResp["name"] != "Alice" {
+		t.Errorf("validate name = %v, want Alice", validateResp["name"])
+	}
+
+	// Use the participant token to access the event
+	participantToken := validateResp["participantToken"].(string)
+	req = httptest.NewRequest("GET", "/events/"+eventID, nil)
+	req.Header.Set("Authorization", "Bearer "+participantToken)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	var eventResp map[string]any
+	json.Unmarshal(w.Body.Bytes(), &eventResp)
+	if eventResp["role"] != "participant" {
+		t.Errorf("role = %v, want participant", eventResp["role"])
+	}
+}
+
+func TestCreateGlobalShareLinkWithKind(t *testing.T) {
+	r, cleanup := setupServer(t)
+	defer cleanup()
+
+	body := `{
+		"title": "Global Kind Test",
+		"timezone": "UTC",
+		"timeSlotConfig": {"durationMinutes": 60, "rangeStart": "10:00", "rangeEnd": "18:00"},
+		"visibility": {"kind": "names-visible"},
+		"suggestions": {"kind": "open"},
+		"dates": []
+	}`
+	req := httptest.NewRequest("POST", "/events", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	var createResp map[string]string
+	json.Unmarshal(w.Body.Bytes(), &createResp)
+	eventID := createResp["eventId"]
+	hostToken := createResp["hostToken"]
+
+	// Create global share link with explicit kind
+	linkBody := `{"kind": "global"}`
+	req = httptest.NewRequest("POST", "/events/"+eventID+"/share-links", bytes.NewBufferString(linkBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+hostToken)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create global link status = %d, want 201. body: %s", w.Code, w.Body.String())
+	}
+
+	var linkResp map[string]any
+	json.Unmarshal(w.Body.Bytes(), &linkResp)
+	if linkResp["kind"] != "global" {
+		t.Errorf("kind = %v, want global", linkResp["kind"])
+	}
+
+	// Validate — should return kind=global
+	shareToken := linkResp["token"].(string)
+	req = httptest.NewRequest("GET", "/events/"+eventID+"/invite/"+shareToken, nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	var validateResp map[string]any
+	json.Unmarshal(w.Body.Bytes(), &validateResp)
+	if validateResp["kind"] != "global" {
+		t.Errorf("validate kind = %v, want global", validateResp["kind"])
+	}
+}
+
+func TestBackwardsCompatCreateShareLinkNoKind(t *testing.T) {
+	r, cleanup := setupServer(t)
+	defer cleanup()
+
+	body := `{
+		"title": "Compat Test",
+		"timezone": "UTC",
+		"timeSlotConfig": {"durationMinutes": 60, "rangeStart": "10:00", "rangeEnd": "18:00"},
+		"visibility": {"kind": "names-visible"},
+		"suggestions": {"kind": "open"},
+		"dates": []
+	}`
+	req := httptest.NewRequest("POST", "/events", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	var createResp map[string]string
+	json.Unmarshal(w.Body.Bytes(), &createResp)
+	eventID := createResp["eventId"]
+	hostToken := createResp["hostToken"]
+
+	// Create share link with no kind (backwards compat) — should default to global
+	linkBody := `{}`
+	req = httptest.NewRequest("POST", "/events/"+eventID+"/share-links", bytes.NewBufferString(linkBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+hostToken)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create link status = %d, want 201. body: %s", w.Code, w.Body.String())
+	}
+
+	var linkResp map[string]any
+	json.Unmarshal(w.Body.Bytes(), &linkResp)
+	if linkResp["kind"] != "global" {
+		t.Errorf("kind = %v, want global", linkResp["kind"])
+	}
+}
+
 func TestSuggestDate(t *testing.T) {
 	r, cleanup := setupServer(t)
 	defer cleanup()

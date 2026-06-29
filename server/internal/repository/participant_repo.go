@@ -9,6 +9,7 @@ import (
 type ParticipantRepository interface {
 	Create(p domain.Participant) error
 	GetByToken(token string) (*domain.Participant, error)
+	GetByID(id string) (*domain.Participant, error)
 	GetByEventID(eventID string) ([]domain.Participant, error)
 	Update(id string, name *string, note *string) error
 	Delete(id string, eventID string) error
@@ -28,6 +29,20 @@ func (r *SQLiteParticipantRepo) Create(p domain.Participant) error {
 		p.ID, p.EventID, p.Name, p.Token, p.Note,
 	)
 	return err
+}
+
+func (r *SQLiteParticipantRepo) GetByID(id string) (*domain.Participant, error) {
+	var p domain.Participant
+	err := r.db.QueryRow(
+		`SELECT id, event_id, name, token, note FROM participants WHERE id = ?`, id,
+	).Scan(&p.ID, &p.EventID, &p.Name, &p.Token, &p.Note)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
 }
 
 func (r *SQLiteParticipantRepo) GetByToken(token string) (*domain.Participant, error) {

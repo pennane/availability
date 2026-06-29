@@ -575,32 +575,81 @@ func (h *Handler) CreateShareLink(w http.ResponseWriter, r *http.Request, eventI
 	}
 
 	var req struct {
+		Kind  string `json:"kind"`
 		Label string `json:"label"`
+		Name  string `json:"name"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+
+	if req.Kind == "" {
+		req.Kind = "global"
+	}
 
 	link := domain.ShareLink{
 		ID:        domain.NewID(),
 		EventID:   eventID,
 		Token:     domain.NewToken(),
 		Label:     req.Label,
-		Kind:      domain.GlobalShareLinkKind{},
 		CreatedAt: time.Now(),
 	}
 
-	if err := h.shareLinks.Create(link); err != nil {
-		http.Error(w, "failed to create share link", http.StatusInternalServerError)
-		return
-	}
+	switch req.Kind {
+	case "global":
+		link.Kind = domain.GlobalShareLinkKind{}
+		if err := h.shareLinks.Create(link); err != nil {
+			http.Error(w, "failed to create share link", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{
+			"id": link.ID, "token": link.Token, "label": link.Label,
+			"createdAt": link.CreatedAt.Format(time.RFC3339), "kind": "global",
+		})
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]any{
-		"id":        link.ID,
-		"token":     link.Token,
-		"label":     link.Label,
-		"createdAt": link.CreatedAt.Format(time.RFC3339),
-	})
+	case "individual":
+		if req.Name == "" {
+			http.Error(w, "name is required for individual links", http.StatusBadRequest)
+			return
+		}
+
+		participant := domain.Participant{
+			ID:      domain.NewID(),
+			EventID: eventID,
+			Name:    req.Name,
+			Token:   domain.NewToken(),
+		}
+		if err := h.participants.Create(participant); err != nil {
+			http.Error(w, "failed to create participant", http.StatusInternalServerError)
+			return
+		}
+
+		link.Kind = domain.IndividualShareLinkKind{
+			Name:          req.Name,
+			ParticipantID: participant.ID,
+		}
+		if err := h.shareLinks.Create(link); err != nil {
+			http.Error(w, "failed to create share link", http.StatusInternalServerError)
+			return
+		}
+
+		h.broadcast.Send(eventID, ws.EventMessage{
+			Kind:          "participant-joined",
+			ParticipantID: participant.ID,
+			Name:          participant.Name,
+		}, nil)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{
+			"id": link.ID, "token": link.Token, "label": link.Label,
+			"createdAt": link.CreatedAt.Format(time.RFC3339), "kind": "individual",
+			"name": req.Name, "participantId": participant.ID,
+		})
+
+	default:
+		http.Error(w, "invalid kind: must be global or individual", http.StatusBadRequest)
+	}
 }
 
 func (h *Handler) ListShareLinks(w http.ResponseWriter, r *http.Request, eventID string) {
@@ -654,12 +703,28 @@ func (h *Handler) ValidateShareToken(w http.ResponseWriter, r *http.Request, eve
 		return
 	}
 
+	resp := map[string]any{
+		"valid": true,
+		"title": event.Title,
+	}
+	if event.Description != "" {
+		resp["description"] = event.Description
+	}
+
+	switch k := link.Kind.(type) {
+	case domain.IndividualShareLinkKind:
+		resp["kind"] = "individual"
+		resp["name"] = k.Name
+		participant, err := h.participants.GetByID(k.ParticipantID)
+		if err == nil && participant != nil {
+			resp["participantToken"] = participant.Token
+		}
+	default:
+		resp["kind"] = "global"
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
-		"valid":       true,
-		"title":       event.Title,
-		"description": event.Description,
-	})
+	json.NewEncoder(w).Encode(resp)
 }
 
 func parseVisibility(raw json.RawMessage) (domain.VisibilityPolicy, error) {
@@ -778,12 +843,21 @@ func buildDates(dates []domain.EventDate) []map[string]any {
 func buildShareLinks(links []domain.ShareLink) []map[string]any {
 	result := make([]map[string]any, len(links))
 	for i, l := range links {
-		result[i] = map[string]any{
+		m := map[string]any{
 			"id":        l.ID,
 			"token":     l.Token,
 			"label":     l.Label,
 			"createdAt": l.CreatedAt.Format(time.RFC3339),
 		}
+		switch k := l.Kind.(type) {
+		case domain.IndividualShareLinkKind:
+			m["kind"] = "individual"
+			m["name"] = k.Name
+			m["participantId"] = k.ParticipantID
+		default:
+			m["kind"] = "global"
+		}
+		result[i] = m
 	}
 	return result
 }
