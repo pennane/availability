@@ -584,6 +584,7 @@ func (h *Handler) CreateShareLink(w http.ResponseWriter, r *http.Request, eventI
 		EventID:   eventID,
 		Token:     domain.NewToken(),
 		Label:     req.Label,
+		Kind:      domain.GlobalShareLinkKind{},
 		CreatedAt: time.Now(),
 	}
 

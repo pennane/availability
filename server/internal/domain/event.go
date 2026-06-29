@@ -41,10 +41,24 @@ type Event struct {
 	CreatedAt      time.Time
 }
 
+type ShareLinkKind interface {
+	shareLinkKind()
+}
+
+type GlobalShareLinkKind struct{}
+type IndividualShareLinkKind struct {
+	Name          string
+	ParticipantID string
+}
+
+func (GlobalShareLinkKind) shareLinkKind()     {}
+func (IndividualShareLinkKind) shareLinkKind() {}
+
 type ShareLink struct {
 	ID        string
 	EventID   string
 	Token     string
 	Label     string
+	Kind      ShareLinkKind
 	CreatedAt time.Time
 }

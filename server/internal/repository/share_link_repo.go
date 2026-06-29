@@ -46,6 +46,7 @@ func (r *SQLiteShareLinkRepo) GetByToken(token string) (*domain.ShareLink, error
 	if err != nil {
 		return nil, err
 	}
+	link.Kind = domain.GlobalShareLinkKind{}
 	return &link, nil
 }
 
@@ -69,6 +70,7 @@ func (r *SQLiteShareLinkRepo) GetByEventID(eventID string) ([]domain.ShareLink, 
 		if err != nil {
 			return nil, err
 		}
+		link.Kind = domain.GlobalShareLinkKind{}
 		links = append(links, link)
 	}
 	return links, rows.Err()
