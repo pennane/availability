@@ -30,7 +30,7 @@
   "event.yourNamePlaceholder": "Nimesi",
   "event.copyLink": "Kopioi leikepöydälle",
   "event.copyLinkCopied": "Linkki kopioitu!",
-  "event.copyLinkPrompt": "Tallenna linkki päästäksesi muokataksesi tietojasi myöhemmin",
+  "event.copyLinkPrompt": "Tallenna linkki muokataksesi tietojasi myöhemmin",
   "event.notFound": "Tapahtumaa ei löytynyt",
   "event.spectatorNotice": "Osallistuaksesi pyydä kutsulinkki tapahtuman järjestäjältä.",
   "event.groupAvailability": "Ryhmän saatavuus",
