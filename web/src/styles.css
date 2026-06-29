@@ -1,8 +1,6 @@
 @import "tailwindcss";
 
 
-@custom-variant dark (&:where(.dark, .dark *));
-
 :root {
   --grid-surface: #fff;
   --grid-muted: theme(--color-gray-50);
@@ -12,9 +10,9 @@
   --grid-text-muted: theme(--color-gray-500);
   --grid-text-faint: theme(--color-gray-400);
   --grid-text-ghost: theme(--color-gray-200);
-  --grid-empty: theme(--color-gray-50);
+  --grid-empty: #fff;
   --grid-empty-hover: theme(--color-gray-100);
-  --grid-header-none-bg: theme(--color-gray-100);
+  --grid-header-none-bg: theme(--color-gray-50);
   --grid-header-none-text: theme(--color-gray-700);
   --grid-header-none-sub: theme(--color-gray-400);
   --grid-header-mixed-bg: theme(--color-green-50);
@@ -25,27 +23,6 @@
   --grid-minimap-active-ring: theme(--color-blue-400);
 }
 
-.dark {
-  --grid-surface: theme(--color-gray-900);
-  --grid-muted: theme(--color-gray-950);
-  --grid-border: theme(--color-gray-700);
-  --grid-border-strong: theme(--color-gray-600);
-  --grid-text: theme(--color-gray-200);
-  --grid-text-muted: theme(--color-gray-400);
-  --grid-text-faint: theme(--color-gray-500);
-  --grid-text-ghost: theme(--color-gray-800);
-  --grid-empty: theme(--color-gray-800);
-  --grid-empty-hover: theme(--color-gray-700);
-  --grid-header-none-bg: theme(--color-gray-800);
-  --grid-header-none-text: theme(--color-gray-200);
-  --grid-header-none-sub: theme(--color-gray-500);
-  --grid-header-mixed-bg: theme(--color-green-950);
-  --grid-header-mixed-text: theme(--color-gray-200);
-  --grid-header-mixed-sub: theme(--color-gray-400);
-  --grid-minimap-active-bg: theme(--color-blue-950);
-  --grid-minimap-active-text: theme(--color-blue-300);
-  --grid-minimap-active-ring: theme(--color-blue-500);
-}
 
 @theme inline {
   --color-grid-surface: var(--grid-surface);
@@ -73,6 +50,3 @@ html {
   font-family: system-ui, sans-serif;
 }
 
-.dark body, .dark html {
-  background-color: #090c16
-}

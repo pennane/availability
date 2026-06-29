@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
 import { router } from './shared/routing/router'
 import { LocaleProvider } from './shared/i18n/LocaleProvider'
-import { ThemeProvider } from './shared/theme/ThemeProvider'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,17 +41,15 @@ function Footer() {
 
 export function App() {
   return (
-    <ThemeProvider>
-      <LocaleProvider>
-        <QueryClientProvider client={queryClient}>
-          <div className="flex flex-col min-h-screen min-w-0">
-            <div className="flex-1 min-w-0">
-              <RouterProvider router={router} />
-            </div>
-            <Footer />
+    <LocaleProvider>
+      <QueryClientProvider client={queryClient}>
+        <div className="flex flex-col min-h-screen min-w-0">
+          <div className="flex-1 min-w-0">
+            <RouterProvider router={router} />
           </div>
-        </QueryClientProvider>
-      </LocaleProvider>
-    </ThemeProvider>
+          <Footer />
+        </div>
+      </QueryClientProvider>
+    </LocaleProvider>
   )
 }

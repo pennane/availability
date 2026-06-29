@@ -24,7 +24,6 @@ import type { SlotEntry, GridColumn } from '@/features/grid/types'
 import type { components } from '@/shared/api/generated/schema'
 import { FormattedMessage, useIntl } from 'react-intl'
 import { LocaleSwitcher } from '@/shared/i18n/LocaleSwitcher'
-import { ThemeSwitcher } from '@/shared/theme/ThemeSwitcher'
 
 type AuthenticatedView =
   | components['schemas']['ParticipantEventView']
@@ -781,7 +780,6 @@ function SpectatorView({
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <ThemeSwitcher />
           <LocaleSwitcher />
         </div>
       </div>
@@ -1013,7 +1011,6 @@ export function EventView({ eventId }: { eventId: string }) {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <ThemeSwitcher />
             <LocaleSwitcher />
             <button
               onClick={() => howItWorksRef.current?.showModal()}

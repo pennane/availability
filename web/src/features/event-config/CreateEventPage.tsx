@@ -6,7 +6,6 @@ import { api } from '@/shared/api/client'
 import { setToken, getKnownEvents } from '@/shared/api/token'
 import { Button } from '@/shared/ui/Button'
 import { LocaleSwitcher } from '@/shared/i18n/LocaleSwitcher'
-import { ThemeSwitcher } from '@/shared/theme/ThemeSwitcher'
 import { DatePicker } from './DatePicker'
 
 export function CreateEventPage() {
@@ -75,10 +74,7 @@ export function CreateEventPage() {
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold"><FormattedMessage id="create.title" defaultMessage="Create Event" /></h1>
-        <div className="flex items-center gap-2">
-          <ThemeSwitcher />
-          <LocaleSwitcher />
-        </div>
+        <LocaleSwitcher />
       </div>
 
       <TextField className="mb-4" value={title} onChange={setTitle}>
