@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/pennane/availability/server/internal/domain"
@@ -50,6 +51,8 @@ func (r *SQLiteShareLinkRepo) CreateWithKind(db TxOrDB, link domain.ShareLink) e
 			`INSERT INTO individual_share_links (share_link_id, name, participant_id) VALUES (?, ?, ?)`,
 			link.ID, k.Name, k.ParticipantID,
 		)
+	default:
+		return fmt.Errorf("share link kind must be set")
 	}
 	return err
 }

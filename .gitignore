@@ -1,5 +1,6 @@
 # Go
 server/availability-server
+server/server
 server/tmp/
 
 # Node

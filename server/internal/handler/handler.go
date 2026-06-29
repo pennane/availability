@@ -195,6 +195,10 @@ func (h *Handler) JoinEvent(w http.ResponseWriter, r *http.Request, eventID stri
 		http.Error(w, "invalid invite link", http.StatusForbidden)
 		return
 	}
+	if _, ok := link.Kind.(domain.IndividualShareLinkKind); ok {
+		http.Error(w, "individual links cannot be used to join", http.StatusBadRequest)
+		return
+	}
 
 	p := domain.Participant{
 		ID:      domain.NewID(),
@@ -616,6 +620,10 @@ func (h *Handler) CreateShareLink(w http.ResponseWriter, r *http.Request, eventI
 			http.Error(w, "name is required for individual links", http.StatusBadRequest)
 			return
 		}
+		if len(req.Name) > 100 {
+			http.Error(w, "name too long", http.StatusBadRequest)
+			return
+		}
 
 		participant := domain.Participant{
 			ID:      domain.NewID(),
@@ -734,12 +742,14 @@ func (h *Handler) ValidateShareToken(w http.ResponseWriter, r *http.Request, eve
 
 	switch k := link.Kind.(type) {
 	case domain.IndividualShareLinkKind:
+		participant, err := h.participants.GetByID(k.ParticipantID)
+		if err != nil || participant == nil {
+			http.Error(w, "participant no longer exists", http.StatusNotFound)
+			return
+		}
 		resp["kind"] = "individual"
 		resp["name"] = k.Name
-		participant, err := h.participants.GetByID(k.ParticipantID)
-		if err == nil && participant != nil {
-			resp["participantToken"] = participant.Token
-		}
+		resp["participantToken"] = participant.Token
 	default:
 		resp["kind"] = "global"
 	}
