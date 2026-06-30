@@ -3,117 +3,24 @@ package main
 import (
 	"context"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
-
-	"github.com/pennane/availability/server/internal/cleanup"
-	"github.com/pennane/availability/server/internal/db"
-	"github.com/pennane/availability/server/internal/handler"
-	"github.com/pennane/availability/server/internal/repository"
-	"github.com/pennane/availability/server/internal/ws"
+	"github.com/pennane/availability/server/internal/app"
 )
 
 func main() {
-	port := envOr("PORT", "8080")
-	dbPath := envOr("DATABASE_PATH", "./availability.db")
-	allowedOrigin := envOr("ALLOWED_ORIGIN", "http://localhost:5173")
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	database, err := db.New(dbPath)
-	if err != nil {
-		log.Fatalf("failed to open database: %v", err)
+	if err := app.Run(ctx, app.Config{
+		Port:          envOr("PORT", "8080"),
+		DBPath:        envOr("DATABASE_PATH", "./availability.db"),
+		AllowedOrigin: envOr("ALLOWED_ORIGIN", "http://localhost:5173"),
+	}); err != nil {
+		log.Fatal(err)
 	}
-	defer database.Close()
-
-	if err := db.Migrate(database); err != nil {
-		log.Fatalf("migration failed: %v", err)
-	}
-
-	eventRepo := repository.NewSQLiteEventRepo(database)
-	participantRepo := repository.NewSQLiteParticipantRepo(database)
-	dateRepo := repository.NewSQLiteEventDateRepo(database)
-	availRepo := repository.NewSQLiteAvailabilityRepo(database)
-	shareLinkRepo := repository.NewSQLiteShareLinkRepo(database)
-	broadcast := ws.NewBroadcast()
-
-	h := handler.New(database, eventRepo, participantRepo, dateRepo, availRepo, shareLinkRepo, broadcast)
-
-	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{allowedOrigin},
-		AllowedMethods:   []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type"},
-		AllowCredentials: true,
-	}))
-
-	r.Post("/events", h.CreateEvent)
-	r.Get("/events/{eventId}", func(w http.ResponseWriter, r *http.Request) {
-		h.GetEvent(w, r, chi.URLParam(r, "eventId"))
-	})
-	r.Patch("/events/{eventId}", func(w http.ResponseWriter, r *http.Request) {
-		h.UpdateEvent(w, r, chi.URLParam(r, "eventId"))
-	})
-	r.Post("/events/{eventId}/me", func(w http.ResponseWriter, r *http.Request) {
-		h.JoinEvent(w, r, chi.URLParam(r, "eventId"))
-	})
-	r.Get("/events/{eventId}/me", func(w http.ResponseWriter, r *http.Request) {
-		h.GetMyParticipation(w, r, chi.URLParam(r, "eventId"))
-	})
-	r.Patch("/events/{eventId}/me", func(w http.ResponseWriter, r *http.Request) {
-		h.UpdateMyParticipation(w, r, chi.URLParam(r, "eventId"))
-	})
-	r.Put("/events/{eventId}/me/availability", func(w http.ResponseWriter, r *http.Request) {
-		h.ReplaceAvailability(w, r, chi.URLParam(r, "eventId"))
-	})
-	r.Post("/events/{eventId}/dates", func(w http.ResponseWriter, r *http.Request) {
-		h.SuggestDate(w, r, chi.URLParam(r, "eventId"))
-	})
-	r.Delete("/events/{eventId}/participants/{participantId}", func(w http.ResponseWriter, r *http.Request) {
-		h.RemoveParticipant(w, r, chi.URLParam(r, "eventId"), chi.URLParam(r, "participantId"))
-	})
-	r.Post("/events/{eventId}/share-links", func(w http.ResponseWriter, r *http.Request) {
-		h.CreateShareLink(w, r, chi.URLParam(r, "eventId"))
-	})
-	r.Get("/events/{eventId}/share-links", func(w http.ResponseWriter, r *http.Request) {
-		h.ListShareLinks(w, r, chi.URLParam(r, "eventId"))
-	})
-	r.Delete("/events/{eventId}/share-links/{linkId}", func(w http.ResponseWriter, r *http.Request) {
-		h.DeleteShareLink(w, r, chi.URLParam(r, "eventId"), chi.URLParam(r, "linkId"))
-	})
-	r.Get("/events/{eventId}/invite/{token}", func(w http.ResponseWriter, r *http.Request) {
-		h.ValidateShareToken(w, r, chi.URLParam(r, "eventId"), chi.URLParam(r, "token"))
-	})
-	r.Get("/events/{eventId}/live", func(w http.ResponseWriter, r *http.Request) {
-		h.HandleWebSocket(w, r, chi.URLParam(r, "eventId"))
-	})
-
-	go cleanup.Run(ctx, database)
-
-	srv := &http.Server{Addr: ":" + port, Handler: r}
-
-	go func() {
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		srv.Shutdown(shutdownCtx)
-	}()
-
-	log.Printf("listening on :%s", port)
-	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatalf("server error: %v", err)
-	}
-	log.Println("server stopped")
 }
 
 func envOr(key, fallback string) string {

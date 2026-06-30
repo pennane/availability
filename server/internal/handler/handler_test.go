@@ -15,7 +15,7 @@ import (
 	"github.com/pennane/availability/server/internal/ws"
 )
 
-func setupServer(t *testing.T) (*chi.Mux, func()) {
+func setupServer(t *testing.T) (chi.Router, func()) {
 	t.Helper()
 	database, _ := db.New(":memory:")
 	db.Migrate(database)
@@ -30,48 +30,10 @@ func setupServer(t *testing.T) (*chi.Mux, func()) {
 		ws.NewBroadcast(),
 	)
 
-	r := chi.NewRouter()
-	r.Post("/events", h.CreateEvent)
-	r.Get("/events/{eventId}", func(w http.ResponseWriter, req *http.Request) {
-		h.GetEvent(w, req, chi.URLParam(req, "eventId"))
-	})
-	r.Post("/events/{eventId}/me", func(w http.ResponseWriter, req *http.Request) {
-		h.JoinEvent(w, req, chi.URLParam(req, "eventId"))
-	})
-	r.Get("/events/{eventId}/me", func(w http.ResponseWriter, req *http.Request) {
-		h.GetMyParticipation(w, req, chi.URLParam(req, "eventId"))
-	})
-	r.Patch("/events/{eventId}/me", func(w http.ResponseWriter, req *http.Request) {
-		h.UpdateMyParticipation(w, req, chi.URLParam(req, "eventId"))
-	})
-	r.Put("/events/{eventId}/me/availability", func(w http.ResponseWriter, req *http.Request) {
-		h.ReplaceAvailability(w, req, chi.URLParam(req, "eventId"))
-	})
-	r.Patch("/events/{eventId}", func(w http.ResponseWriter, req *http.Request) {
-		h.UpdateEvent(w, req, chi.URLParam(req, "eventId"))
-	})
-	r.Post("/events/{eventId}/dates", func(w http.ResponseWriter, req *http.Request) {
-		h.SuggestDate(w, req, chi.URLParam(req, "eventId"))
-	})
-	r.Post("/events/{eventId}/share-links", func(w http.ResponseWriter, req *http.Request) {
-		h.CreateShareLink(w, req, chi.URLParam(req, "eventId"))
-	})
-	r.Get("/events/{eventId}/share-links", func(w http.ResponseWriter, req *http.Request) {
-		h.ListShareLinks(w, req, chi.URLParam(req, "eventId"))
-	})
-	r.Delete("/events/{eventId}/share-links/{linkId}", func(w http.ResponseWriter, req *http.Request) {
-		h.DeleteShareLink(w, req, chi.URLParam(req, "eventId"), chi.URLParam(req, "linkId"))
-	})
-	r.Get("/events/{eventId}/invite/{token}", func(w http.ResponseWriter, req *http.Request) {
-		h.ValidateShareToken(w, req, chi.URLParam(req, "eventId"), chi.URLParam(req, "token"))
-	})
-
-	return r, func() { database.Close() }
+	return h.Routes(), func() { database.Close() }
 }
 
-// createShareLink creates a share link for the given event using the host token
-// and returns the share token string.
-func createShareLink(t *testing.T, r *chi.Mux, eventID, hostToken string) string {
+func createShareLink(t *testing.T, r chi.Router, eventID, hostToken string) string {
 	t.Helper()
 	req := httptest.NewRequest("POST", "/events/"+eventID+"/share-links", bytes.NewBufferString(`{"label":"test"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -147,7 +109,6 @@ func TestJoinEvent(t *testing.T) {
 	r, cleanup := setupServer(t)
 	defer cleanup()
 
-	// Create event first
 	body := `{
 		"title": "Test Event",
 		"timezone": "UTC",
@@ -166,10 +127,8 @@ func TestJoinEvent(t *testing.T) {
 	eventID := createResp["eventId"]
 	hostToken := createResp["hostToken"]
 
-	// Create share link
 	shareToken := createShareLink(t, r, eventID, hostToken)
 
-	// Join event
 	joinBody := `{"name": "Alice", "shareToken": "` + shareToken + `"}`
 	req = httptest.NewRequest("POST", "/events/"+eventID+"/me", bytes.NewBufferString(joinBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -189,7 +148,6 @@ func TestJoinEvent(t *testing.T) {
 		t.Fatal("missing participantId or token in join response")
 	}
 
-	// Get event as participant — should see participant role
 	req = httptest.NewRequest("GET", "/events/"+eventID, nil)
 	req.Header.Set("Authorization", "Bearer "+participantToken)
 	w = httptest.NewRecorder()
@@ -206,7 +164,6 @@ func TestReplaceAvailability(t *testing.T) {
 	r, cleanup := setupServer(t)
 	defer cleanup()
 
-	// Create event
 	body := `{
 		"title": "Avail Test",
 		"timezone": "UTC",
@@ -225,7 +182,6 @@ func TestReplaceAvailability(t *testing.T) {
 	eventID := createResp["eventId"]
 	hostToken := createResp["hostToken"]
 
-	// Get dates to find eventDateId
 	req = httptest.NewRequest("GET", "/events/"+eventID, nil)
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -235,7 +191,6 @@ func TestReplaceAvailability(t *testing.T) {
 	dates := eventResp["dates"].([]any)
 	eventDateID := dates[0].(map[string]any)["id"].(string)
 
-	// Create share link and join event
 	shareToken := createShareLink(t, r, eventID, hostToken)
 	req = httptest.NewRequest("POST", "/events/"+eventID+"/me", bytes.NewBufferString(`{"name":"Bob","shareToken":"`+shareToken+`"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -246,7 +201,6 @@ func TestReplaceAvailability(t *testing.T) {
 	json.Unmarshal(w.Body.Bytes(), &joinResp)
 	token := joinResp["token"]
 
-	// Replace availability
 	availBody, _ := json.Marshal(map[string]any{
 		"entries": []map[string]any{
 			{"eventDateId": eventDateID, "slot": "2026-09-01T10:00", "kind": "available"},
@@ -274,7 +228,6 @@ func TestGetMyParticipation(t *testing.T) {
 	r, cleanup := setupServer(t)
 	defer cleanup()
 
-	// Create event and join
 	createBody := `{
 		"title": "Me Test",
 		"timezone": "UTC",
@@ -303,7 +256,6 @@ func TestGetMyParticipation(t *testing.T) {
 	json.Unmarshal(w.Body.Bytes(), &joinResp)
 	token := joinResp["token"]
 
-	// Get my participation
 	req = httptest.NewRequest("GET", "/events/"+eventID+"/me", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	w = httptest.NewRecorder()
@@ -324,7 +276,6 @@ func TestUpdateEvent_ImmutableFieldsRejected(t *testing.T) {
 	r, cleanup := setupServer(t)
 	defer cleanup()
 
-	// Create event
 	body := `{
 		"title": "Immutable Test",
 		"timezone": "Europe/Helsinki",
@@ -343,7 +294,6 @@ func TestUpdateEvent_ImmutableFieldsRejected(t *testing.T) {
 	eventID := createResp["eventId"]
 	hostToken := createResp["hostToken"]
 
-	// Try to patch timezone — must be rejected
 	patchBody := `{"timezone": "America/New_York"}`
 	req = httptest.NewRequest("PATCH", "/events/"+eventID, bytes.NewBufferString(patchBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -360,7 +310,6 @@ func TestCreateIndividualShareLink(t *testing.T) {
 	r, cleanup := setupServer(t)
 	defer cleanup()
 
-	// Create event
 	body := `{
 		"title": "Individual Link Test",
 		"timezone": "UTC",
@@ -379,7 +328,6 @@ func TestCreateIndividualShareLink(t *testing.T) {
 	eventID := createResp["eventId"]
 	hostToken := createResp["hostToken"]
 
-	// Create individual share link
 	linkBody := `{"kind": "individual", "name": "Alice"}`
 	req = httptest.NewRequest("POST", "/events/"+eventID+"/share-links", bytes.NewBufferString(linkBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -403,7 +351,6 @@ func TestCreateIndividualShareLink(t *testing.T) {
 		t.Error("missing participantId in response")
 	}
 
-	// Validate the share token — should return kind=individual with participantToken
 	shareToken := linkResp["token"].(string)
 	req = httptest.NewRequest("GET", "/events/"+eventID+"/invite/"+shareToken, nil)
 	w = httptest.NewRecorder()
@@ -425,7 +372,6 @@ func TestCreateIndividualShareLink(t *testing.T) {
 		t.Errorf("validate name = %v, want Alice", validateResp["name"])
 	}
 
-	// Use the participant token to access the event
 	participantToken := validateResp["participantToken"].(string)
 	req = httptest.NewRequest("GET", "/events/"+eventID, nil)
 	req.Header.Set("Authorization", "Bearer "+participantToken)
@@ -461,7 +407,6 @@ func TestCreateGlobalShareLinkWithKind(t *testing.T) {
 	eventID := createResp["eventId"]
 	hostToken := createResp["hostToken"]
 
-	// Create global share link with explicit kind
 	linkBody := `{"kind": "global"}`
 	req = httptest.NewRequest("POST", "/events/"+eventID+"/share-links", bytes.NewBufferString(linkBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -479,7 +424,6 @@ func TestCreateGlobalShareLinkWithKind(t *testing.T) {
 		t.Errorf("kind = %v, want global", linkResp["kind"])
 	}
 
-	// Validate — should return kind=global
 	shareToken := linkResp["token"].(string)
 	req = httptest.NewRequest("GET", "/events/"+eventID+"/invite/"+shareToken, nil)
 	w = httptest.NewRecorder()
@@ -514,7 +458,6 @@ func TestBackwardsCompatCreateShareLinkNoKind(t *testing.T) {
 	eventID := createResp["eventId"]
 	hostToken := createResp["hostToken"]
 
-	// Create share link with no kind (backwards compat) — should default to global
 	linkBody := `{}`
 	req = httptest.NewRequest("POST", "/events/"+eventID+"/share-links", bytes.NewBufferString(linkBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -537,7 +480,6 @@ func TestSuggestDate(t *testing.T) {
 	r, cleanup := setupServer(t)
 	defer cleanup()
 
-	// Create event with open suggestions
 	body := `{
 		"title": "Suggest Test",
 		"timezone": "UTC",
@@ -556,7 +498,6 @@ func TestSuggestDate(t *testing.T) {
 	eventID := createResp["eventId"]
 	hostToken := createResp["hostToken"]
 
-	// Create share link and join event
 	shareToken := createShareLink(t, r, eventID, hostToken)
 	req = httptest.NewRequest("POST", "/events/"+eventID+"/me", bytes.NewBufferString(`{"name":"Dave","shareToken":"`+shareToken+`"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -567,7 +508,6 @@ func TestSuggestDate(t *testing.T) {
 	json.Unmarshal(w.Body.Bytes(), &joinResp)
 	token := joinResp["token"]
 
-	// Suggest a date
 	req = httptest.NewRequest("POST", "/events/"+eventID+"/dates", bytes.NewBufferString(`{"date":"2026-10-01"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -578,7 +518,6 @@ func TestSuggestDate(t *testing.T) {
 		t.Fatalf("suggest date status = %d, want 201. body: %s", w.Code, w.Body.String())
 	}
 
-	// Suggest same date again — should be 409
 	req = httptest.NewRequest("POST", "/events/"+eventID+"/dates", bytes.NewBufferString(`{"date":"2026-10-01"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
